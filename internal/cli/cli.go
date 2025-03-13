@@ -23,6 +23,9 @@ func Run(args []string) error {
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 	size := fs.Int("s", 4096, "Chunk size in bytes")
+	hashStr := fs.String("h", "", "SimHash algorithm to use")
+	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before hash")
+	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after hash")
 
 	// Advanced commands to be added
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
@@ -31,6 +34,7 @@ func Run(args []string) error {
 	maxChunkSize := fs.Int("max-size", 6144, "Maximum chunk size in bytes")
 	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
+
 	
 
 	fs.Parse(args[1:])
@@ -92,6 +96,56 @@ func Run(args []string) error {
 		
 	case "lookup":
 		// TODO: Add a function to lookup chunks
+		if *input == "" || *hashStr == "" {
+			return fmt.Errorf("index file and hash must be specified")
+		}
+
+		var hash simhash.SimHash
+		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
+			return fmt.Errorf("invalid hash: %w", err)
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
+		positions, exists := idx.Lookup(hash)
+		if !exists {
+			return fmt.Errorf("SimHash not found in index")
+		}
+
+		fmt.Printf("Found %d matches: \n", len(positions))
+		for i, pos := range positions[:min(3, len(positions))] {
+			// TODO: Add a function to read chunk contents
+			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+			if err != nil {
+				return err
+			}
+
+			preview := content
+			if len(preview) > 100 {
+				preview = preview[:100] + "..."
+			}
+
+			fmt.Printf("%d. Position: %d, Preview: %s\n", i+1, pos, preview)
+		}
+
+		defer idx.Close()
+		return nil
+
+	// case "stats":
+	// 	if *input == "" {
+	// 		return fmt.Errorf("index file must be specified")
+	// 	}
+
+	// 	idx, err := index.Load(*input)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	stats := idx.Stats()
+
 
 	default:
 		// TODO: Setup chunk options
