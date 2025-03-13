@@ -80,30 +80,73 @@ func (s SimHash) HammingDistance(other SimHash) int {
 func (s SimHash) IsSimilar(other SimHash, threshold int) bool {
 	return s.HammingDistance(other) <= threshold
 }
+
+// NewPermutationTable creates a new permutation table for LSH
+func NewPermutationTable(hashBits, bands int) *PermutationTable {
+	if bands <= 0 || hashBits%bands != 0 {
+		panic("Number of bands must divide hash bits evenly")
+	}
+	
+	bandSize := hashBits / bands
+	permutations := make([][]int, bands)
+	
+	// Create permutation for each band
+	for i := 0; i < bands; i++ {
+		perm := rand.Perm(hashBits)
+		permutations[i] = perm[:bandSize]
+	}
+	
+	return &PermutationTable{
+		permutations: permutations,
+		bandSize:     bandSize,
+		bands:        bands,
+	}
+}
+
+// GetBandSignatures generates band signatures for a SimHash
+func (pt *PermutationTable) GetBandSignatures(hash SimHash) []uint64 {
+	signatures := make([]uint64, pt.bands)
+	for i := 0; i < pt.bands; i++ {
+		var sig uint64
+		for j, bitPos := range pt.permutations[i] {
+			if (hash & (1 << bitPos)) != 0 {
+				sig |= 1 << j
+			}
+		}
+		signatures[i] = sig
+	}
+	return signatures
+}
+
+// GenerateHyperplanes creates random unit vectors for SimHash
 func GenerateHyperplanes(dimensions, count int) [][]float64 {
 	// Create a deterministic source for reproducibility
-	source := rand.NewSource(42)
-	r := rand.New(source)
-
 	hyperplanes := make([][]float64, count)
-
 	var wg sync.WaitGroup
-	var mu sync.Mutex
 
-	// Parallel hyperplane generation
-	for i := 0; i < count; i += 4 {
+	// Create chunks of work
+	chunkSize := 4
+	for i := 0; i < count; i += chunkSize {
 		wg.Add(1)
 		go func(startIdx int) {
 			defer wg.Done()
+			
+			// Create a unique seeded source for this goroutine
+			localSource := rand.NewSource(42 + int64(startIdx))
+			localRand := rand.New(localSource)
 
-			localPlanes := make([][]float64, 0, 4)
-			for j := 0; j < 4 && startIdx+j < count; j++ {
+			end := startIdx + chunkSize
+			if end > count {
+				end = count
+			}
+
+			for idx := startIdx; idx < end; idx++ {
 				hyperplane := make([]float64, dimensions)
 				sumSquared := 0.0
 
 				// Generate random values using Box-Muller transform
 				for k := range hyperplane {
-					u1, u2 := r.Float64(), r.Float64()
+					u1, u2 := localRand.Float64(), localRand.Float64()
 					z := math.Sqrt(-2.0*math.Log(u1)) * math.Cos(2.0*math.Pi*u2)
 					hyperplane[k] = z
 					sumSquared += z * z
@@ -115,16 +158,8 @@ func GenerateHyperplanes(dimensions, count int) [][]float64 {
 					hyperplane[k] /= magnitude
 				}
 
-				localPlanes = append(localPlanes, hyperplane)
+				hyperplanes[idx] = hyperplane
 			}
-
-			mu.Lock()
-			for j, plane := range localPlanes {
-				if startIdx+j < count {
-					hyperplanes[startIdx+j] = plane
-				}
-			}
-			mu.Unlock()
 		}(i)
 	}
 
