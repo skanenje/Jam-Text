@@ -229,7 +229,7 @@ func min(a, b int) int {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("TextIndex - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("  textindex -cmd <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index  - Create index from text file")
 	fmt.Println("  lookup - Exact lookup by SimHash")
@@ -238,7 +238,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
-	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
+	fmt.Println("  textindex -cmd index -i book.txt -o book.idx -s 4096")
+	fmt.Println("  textindex -cmd lookup -i book.idx -h a1b2c3d4e5f6")
+	fmt.Println("  textindex -cmd fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 }
