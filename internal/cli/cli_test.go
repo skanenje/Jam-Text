@@ -57,7 +57,7 @@ func TestRunValidation(t *testing.T) {
 func TestRunIndexCommnd(t *testing.T) {
 	// Temporary directory for test files
 	tmpDir, err := os.MkdirTemp("", "cli_test")
-	if err !=  nil {
+	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
@@ -74,10 +74,10 @@ func TestRunIndexCommnd(t *testing.T) {
 	indexDir := filepath.Join(tmpDir, "index")
 
 	tests := []struct {
-		name string
-		args []string
+		name    string
+		args    []string
 		wantErr bool
-		setup func() error 
+		setup   func() error
 		cleanup func() error
 	}{
 		{
@@ -117,7 +117,7 @@ func TestRunIndexCommnd(t *testing.T) {
 		},
 		{
 			name: "index with invalid input file",
-			args: []string {
+			args: []string{
 				"program",
 				"-cmd", "index",
 				"-i", "non existent.txt",
@@ -133,6 +133,106 @@ func TestRunIndexCommnd(t *testing.T) {
 				"-i", inputPath,
 				"-o", outputPath,
 				"-log", "/invalid/path/log.txt",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				if err := tt.setup(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err := Run(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.cleanup != nil {
+				if err := tt.cleanup(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Clean up output files after each test
+			os.Remove(outputPath)
+			os.Remove(logPath)
+		})
+	}
+}
+
+func TestRunLookupCommand(t *testing.T) {
+	// Temporary directory for test files
+	tmpDir, err := os.MkdirTemp("", "cli_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test index file
+	indexPath := filepath.Join(tmpDir, "test.idx")
+	if err := os.WriteFile(indexPath, []byte("mock index data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create paths for output and log files
+	outputPath := filepath.Join(tmpDir, "lookup_results.txt")
+	logPath := filepath.Join(tmpDir, "lookup.log")
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+		setup   func() error
+		cleanup func() error
+	}{
+		{
+			name: "successful lookup with defaults",
+			args: []string{
+				"program",
+				"-cmd", "lookup",
+				"-i", indexPath,
+				"-h", "f7a3d921",
+				"-o", outputPath,
+			},
+			wantErr: false,
+		},
+		{
+			name: "lookup with all options",
+			args: []string{
+				"program",
+				"-cmd", "lookup",
+				"-i", indexPath,
+				"-h", "f7a3d921",
+				"-o", outputPath,
+				"-v",
+				"-log", logPath,
+				"-context-before", "200",
+				"-context-after", "200",
+			},
+			wantErr: false,
+		},
+		{
+			name: "lookup with invalid index file",
+			args: []string{
+				"program",
+				"-cmd", "lookup",
+				"-i", "nonexistent.idx",
+				"-h", "f7a3d921",
+				"-o", outputPath,
+			},
+			wantErr: true,
+		},
+		{
+			name: "lookup without hash value",
+			args: []string{
+				"program",
+				"-cmd", "lookup",
+				"-i", indexPath,
+				"-o", outputPath,
 			},
 			wantErr: true,
 		},
