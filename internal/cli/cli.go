@@ -23,6 +23,7 @@ func Run(args []string) error {
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 	size := fs.Int("s", 4096, "Chunk size in bytes")
+	hashStr := fs.String("h", "", "SimHash value to lookup")
 
 	// Advanced commands to be added
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
@@ -31,6 +32,8 @@ func Run(args []string) error {
 	maxChunkSize := fs.Int("max-size", 6144, "Maximum chunk size in bytes")
 	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
+	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
+	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
 	
 
 	fs.Parse(args[1:])
@@ -92,6 +95,43 @@ func Run(args []string) error {
 		
 	case "lookup":
 		// TODO: Add a function to lookup chunks
+		if *input == "" || *hashStr == "" {
+			return fmt.Errorf("input and hash must be specified")
+		}
+
+		var hash simhash.SimHash
+		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
+			return fmt.Errorf("invalid hash: %w", err)
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
+		positions, err := idx.Lookup(hash)
+		if err != nil {
+			return fmt.Errorf("SimHash not found")
+		}
+
+		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
+		for i, pos := range positions[:min(3, len(positions))] {
+			// TODO: Add a function to read chunk contents
+			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+			if err != nil {
+				return nil
+			}
+
+			preview := content
+			if len(content) > 100 {
+				preview = content[:100] + "..."
+			}
+
+			fmt.Printf("%d. Position: %d, Preview: %s\n", i+1, pos, preview)
+		}
+
+		defer idx.Close()
+		return nil
 
 	default:
 		// TODO: Setup chunk options
@@ -99,6 +139,4 @@ func Run(args []string) error {
 		
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
-
-	return nil
 }
