@@ -81,13 +81,6 @@ func (s SimHash) IsSimilar(other SimHash, threshold int) bool {
 	return s.HammingDistance(other) <= threshold
 }
 
-// PermutationTable implements locality-sensitive hashing for faster similarity search
-type PermutationTable struct {
-	permutations [][]int
-	bandSize     int
-	bands        int
-}
-
 // NewPermutationTable creates a new permutation table for LSH
 func NewPermutationTable(hashBits, bands int) *PermutationTable {
 	if bands <= 0 || hashBits%bands != 0 {
@@ -128,9 +121,6 @@ func (pt *PermutationTable) GetBandSignatures(hash SimHash) []uint64 {
 // GenerateHyperplanes creates random unit vectors for SimHash
 func GenerateHyperplanes(dimensions, count int) [][]float64 {
 	// Create a deterministic source for reproducibility
-	source := rand.NewSource(42)
-	r := rand.New(source)
-
 	hyperplanes := make([][]float64, count)
 	var wg sync.WaitGroup
 
