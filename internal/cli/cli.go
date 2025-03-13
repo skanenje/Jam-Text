@@ -34,6 +34,7 @@ func Run(args []string) error {
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
 	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
 	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
+	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
 	
 
 	fs.Parse(args[1:])
@@ -133,10 +134,111 @@ func Run(args []string) error {
 		defer idx.Close()
 		return nil
 
+	case "stats":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
+		stats := idx.Stats()
+		fmt.Println("Index Statistics:")
+		fmt.Printf("Source file: %s\n", stats["source_file"])
+		fmt.Printf("Chunk size: %d bytes\n", stats["chunk_size"])
+		fmt.Printf("Created: %v\n", stats["created"])
+		fmt.Printf("Shards: %d\n", stats["shards"])
+		fmt.Printf("Unique hashes: %d\n", stats["unique_hashes"])
+		fmt.Printf("Total positions: %d\n", stats["total_positions"])
+
+		defer idx.Close()
+		return nil
+
+	case "fuzzy":
+		if *input == "" || *hashStr == "" {
+			return fmt.Errorf("input and hash must be specified")
+		}
+
+		var hash simhash.SimHash
+		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
+			return fmt.Errorf("invalid hash: %w", err)
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
+		// Use fuzzy search to find similar hashes with threshold
+		resultMap, exists := idx.FuzzyLookup(hash, *threshold)
+		if !exists {
+			return fmt.Errorf("No similar hashes found")
+		}
+
+		fmt.Printf("Fond %d similar hashes for SimHash %x\n", len(resultMap), hash)
+		count := 0
+		for similarHash, positions := range resultMap {
+			distance := hash.HammingDistance(similarHash)
+			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
+		                    similarHash,
+		                    distance,
+		                    len(positions))
+
+			// Show sample positions
+			for i, pos := range positions[:min(2, len(positions))] {
+				// TODO: Add a function to read chunk contents
+				content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+				if err != nil {
+					return nil
+				}
+
+				preview := content
+				if len(content) > 100 {
+					preview = content[:100] + "..."
+				}
+
+				fmt.Printf(" %d.%d. Position: %d, Preview: %s\n", count+1, i+1, pos, preview)
+			}
+
+			count++
+			if count >= 3 {
+				fmt.Printf("... and %d more similar hashes\n", len(resultMap)-3)
+				break
+			}
+		}
+
+		defer idx.Close()
+		return nil
+
 	default:
 		// TODO: Setup chunk options
-
-		
+		printUsage(fs)
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func printUsage(fs *flag.FlagSet) {
+	fmt.Println("TextIndex - A text indexing and similarity search tool")
+	fmt.Println("\nUsage:")
+	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("\nCommands:")
+	fmt.Println("  index  - Create index from text file")
+	fmt.Println("  lookup - Exact lookup by SimHash")
+	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  stats  - Show index statistics")
+	fmt.Println("\nOptions:")
+	fs.PrintDefaults()
+	fmt.Println("\nExamples:")
+	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
+	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
+	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 }
