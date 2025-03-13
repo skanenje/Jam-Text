@@ -411,7 +411,7 @@ func min(a, b int) int {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("TextIndex - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("  textindex -cmd <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index    - Create index from text file")
 	fmt.Println("  lookup   - Exact lookup by SimHash")
