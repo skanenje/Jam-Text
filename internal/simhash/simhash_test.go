@@ -10,6 +10,7 @@ func abs(x float64) float64 {
 	}
 	return x
 }
+
 func TestHammingDistance(t *testing.T) {
 	tests := []struct {
 		a, b     SimHash
