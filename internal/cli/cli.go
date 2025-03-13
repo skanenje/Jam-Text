@@ -149,8 +149,31 @@ func Run(args []string) error {
 
 	default:
 		// TODO: Setup chunk options
-
-		
+		printUsage(fs)
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func printUsage(fs *flag.FlagSet) {
+	fmt.Println("TextIndex - A text indexing and similarity search tool")
+	fmt.Println("\nUsage:")
+	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("\nCommands:")
+	fmt.Println("  index  - Create index from text file")
+	fmt.Println("  lookup - Exact lookup by SimHash")
+	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  stats  - Show index statistics")
+	fmt.Println("\nOptions:")
+	fs.PrintDefaults()
+	fmt.Println("\nExamples:")
+	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
+	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
+	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 }
