@@ -167,3 +167,23 @@ func (idx *Index) Stats() map[string]interface{} {
 		"total_positions": totalPositions,
 	}
 }
+
+// Close performs cleanup operations
+func (idx *Index) Close() error {
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
+	// Save active shard if needed
+	if len(idx.Shards[idx.ActiveShard].SimHashToPos) > 0 {
+		if err := idx.saveShard(idx.Shards[idx.ActiveShard]); err != nil {
+			return err
+		}
+	}
+
+	// Clear in-memory data to free up resources
+	for i := range idx.Shards {
+		idx.Shards[i] = nil
+	}
+
+	return nil
+}
