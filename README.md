@@ -2,20 +2,30 @@
 
 A high-performance text indexer implementation using SimHash fingerprints based on vector similarity with random hyperplanes. Written in Go, it provides an efficient way to index and search large text files.
 
-## The Text Indexer Works By
+## How It Works
 
-1. Splitting text files into fixed-size chunks (default 4KB)
-2. Converting each chunk to a normalized word frequency vector
-3. Using random hyperplanes to generate SimHash fingerprints
-4. Building an in-memory index that maps fingerprints to file positions
-5. Allowing quick lookups based on hash values
+The text indexer uses a combination of techniques for efficient text similarity search:
+
+1. **Chunking**: Text files are split into fixed-size chunks (default 4KB) using a parallel worker pool for performance
+2. **Vectorization**: Each chunk is converted to a normalized word frequency vector using either:
+   - Simple frequency-based vectorization
+   - N-gram based vectorization
+3. **SimHash Generation**: 
+   - Uses 64-bit SimHash fingerprints
+   - Implements random hyperplane generation for consistent hashing
+   - Employs parallel processing for hyperplane generation
+4. **Similarity Detection**:
+   - Uses Hamming distance for comparing SimHash fingerprints
+   - Supports configurable similarity thresholds
+   - Includes locality-sensitive hashing for faster similarity search
 
 ## Features
 
-- Multi-threaded processing for faster indexing
-- Vector-based SimHash computation using random hyperplanes
+- Multi-threaded processing using worker pools for chunk processing
+- Vector-based SimHash computation using 128-dimensional vectors
+- 64 random hyperplanes for fingerprint generation
 - Efficient memory use with normalized word-frequency vectors
-- Clean command-line interface matching the specification
+- Clean command-line interface
 - Serialized index storage using Gob encoding
 
 ## Building the Application
@@ -58,20 +68,32 @@ jamtext -cmd lookup -i <input_file> -o <output_file>
 │   └── main.go          # Application entry point
 ├── internal/
 │   ├── cli/            # Command line interface handling
-│   ├── chunk/          # Text chunking implementation
-│   ├── index/          # Index management
-│   └── simhash/        # SimHash implementation
+│   ├── chunk/          # Parallel chunk processing implementation
+│   ├── index/          # Index management and storage
+│   └── simhash/        # SimHash implementation with LSH support
 ├── go.mod              # Go module definition
 └── Makefile            # Build automation
 ```
 
-## How It Works
+## Technical Details
 
-[Implementation details to be added]
+### Chunk Processing
+- Implements a worker pool for parallel chunk processing
+- Uses context for graceful shutdown
+- Includes metadata support for each chunk
+- Buffered channels for optimal performance
 
-## Testing
+### SimHash Implementation
+- 128-dimensional vector space
+- 64-bit fingerprint generation
+- Parallel hyperplane generation using Box-Muller transform
+- Normalized random hyperplanes for consistent hashing
+- Supports both frequency and n-gram based vectorization
 
-[Testing instructions to be added]
+### Index Management
+- In-memory index mapping fingerprints to file positions
+- Serialized storage support
+- Efficient similarity search capabilities
 
 ## Contributing
 
