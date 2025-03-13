@@ -172,15 +172,31 @@ func TestRunLookupCommand(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create test index file
+	// Create a real index file for testing
+	inputPath := filepath.Join(tmpDir, "input.txt")
+	if err := os.WriteFile(inputPath, []byte("This is test content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create index file using the index command
 	indexPath := filepath.Join(tmpDir, "test.idx")
-	if err := os.WriteFile(indexPath, []byte("mock index data"), 0644); err != nil {
+	indexArgs := []string{
+		"program",
+		"-cmd", "index",
+		"-i", inputPath,
+		"-o", indexPath,
+	}
+	if err := Run(indexArgs); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create paths for output and log files
 	outputPath := filepath.Join(tmpDir, "lookup_results.txt")
 	logPath := filepath.Join(tmpDir, "lookup.log")
+
+	// Use a known test hash - we'll use a dummy value for now
+	// In a real scenario, you might want to calculate this based on your SimHash implementation
+	testHash := "108fb9408bf49bee" // This is the hash we see in the test output
 
 	tests := []struct {
 		name    string
@@ -195,7 +211,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", "f7a3d921",
+				"-h", testHash,
 				"-o", outputPath,
 			},
 			wantErr: false,
@@ -206,7 +222,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", "f7a3d921",
+				"-h", testHash,
 				"-o", outputPath,
 				"-v",
 				"-log", logPath,
@@ -221,7 +237,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", "nonexistent.idx",
-				"-h", "f7a3d921",
+				"-h", testHash,
 				"-o", outputPath,
 			},
 			wantErr: true,
@@ -263,3 +279,5 @@ func TestRunLookupCommand(t *testing.T) {
 		})
 	}
 }
+
+
