@@ -7,14 +7,13 @@ import (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("textindex", flag.ExitOnError)
-	
+
 	// Basic commands
 	cmd := fs.String("cmd", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 
 	// Advanced commands to be added
-	
 
 	fs.Parse(args[1:])
 
@@ -32,7 +31,6 @@ func Run(args []string) error {
 	default:
 		// TODO: Setup chunk options
 
-		
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
 
