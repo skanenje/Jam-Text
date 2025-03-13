@@ -1,63 +1,67 @@
 # Jam-Text
 
-A high-performance text indexer implementation using SimHash fingerprints based on vector similarity with random hyperplanes. Written in Go, it provides an efficient way to index and search large text files.
+A high-performance text indexer using SimHash fingerprints for text similarity search. Written in Go, it provides efficient indexing and searching of large text files through vector similarity with random hyperplanes.
 
-## How It Works
+## Current Status
 
-The text indexer uses a combination of techniques for efficient text similarity search:
+✅ Implemented:
+- Parallel chunk processing architecture
+- SimHash core implementation
+- Worker pool for concurrent processing
+- CLI framework
+- Basic project structure
 
-1. **Chunking**: Text files are split into fixed-size chunks (default 4KB) using a parallel worker pool for performance
-2. **Vectorization**: Each chunk is converted to a normalized word frequency vector using either:
-   - Simple frequency-based vectorization
-   - N-gram based vectorization
-3. **SimHash Generation**: 
-   - Uses 64-bit SimHash fingerprints
-   - Implements random hyperplane generation for consistent hashing
-   - Employs parallel processing for hyperplane generation
-4. **Similarity Detection**:
-   - Uses Hamming distance for comparing SimHash fingerprints
-   - Supports configurable similarity thresholds
-   - Includes locality-sensitive hashing for faster similarity search
+🚧 In Progress:
+- Index command implementation
+- Lookup command implementation
+- Index storage serialization
+- Full CLI functionality
 
-## Features
+## Core Components
 
-- Multi-threaded processing using worker pools for chunk processing
-- Vector-based SimHash computation using 128-dimensional vectors
-- 64 random hyperplanes for fingerprint generation
-- Efficient memory use with normalized word-frequency vectors
-- Clean command-line interface
-- Serialized index storage using Gob encoding
+### Chunk Processing
+- Default chunk size: 4KB
+- Configurable overlap: 256 bytes
+- Boundary-aware splitting
+- Metadata support per chunk
+- Parallel processing via worker pool
 
-## Building the Application
+### SimHash Implementation
+- 128-dimensional vector space
+- 64-bit fingerprints
+- Parallel hyperplane generation
+- Box-Muller transform for normal distribution
+- Normalized random hyperplanes
+- Hamming distance similarity comparison
+
+### Worker Pool
+- Context-based graceful shutdown
+- Buffered task channels
+- Dynamic worker scaling
+- Concurrent task processing
+
+## Usage
+
+```bash
+# Index a file (in development)
+jamtext -cmd index -i <input_file> -o <output_file>
+
+# Lookup similar text (in development)
+jamtext -cmd lookup -i <input_file> -o <output_file>
+```
+
+## Building
 
 Requirements:
 - Go 1.24.1 or higher
 - Make (optional)
 
-To build the application:
-
 ```bash
+# Using make
 make build
-```
 
-Or manually:
-
-```bash
+# Or manually
 go build ./cmd/main.go
-```
-
-## Usage
-
-The application supports two main commands:
-
-### Indexing
-```bash
-jamtext -cmd index -i <input_file> -o <output_file>
-```
-
-### Lookup
-```bash
-jamtext -cmd lookup -i <input_file> -o <output_file>
 ```
 
 ## Project Structure
@@ -65,43 +69,60 @@ jamtext -cmd lookup -i <input_file> -o <output_file>
 ```
 .
 ├── cmd/
-│   └── main.go          # Application entry point
+│   └── main.go          # Entry point
 ├── internal/
-│   ├── cli/            # Command line interface handling
-│   ├── chunk/          # Parallel chunk processing implementation
-│   ├── index/          # Index management and storage
-│   └── simhash/        # SimHash implementation with LSH support
-├── go.mod              # Go module definition
-└── Makefile            # Build automation
+│   ├── cli/            # Command handling
+│   ├── chunk/          # Text chunking
+│   ├── index/          # Index management
+│   └── simhash/        # SimHash implementation
+├── go.mod
+└── Makefile
 ```
 
 ## Technical Details
 
-### Chunk Processing
-- Implements a worker pool for parallel chunk processing
-- Uses context for graceful shutdown
-- Includes metadata support for each chunk
-- Buffered channels for optimal performance
+### Chunk Options
+```go
+ChunkOptions {
+    ChunkSize:        4096,  // Default chunk size
+    OverlapSize:      256,   // Overlap between chunks
+    SplitOnBoundary:  true,  // Respect text boundaries
+    BoundaryChars:    ".!?\n",
+    MaxChunkSize:     6144,
+    PreserveNewlines: true,
+}
+```
 
-### SimHash Implementation
-- 128-dimensional vector space
-- 64-bit fingerprint generation
-- Parallel hyperplane generation using Box-Muller transform
-- Normalized random hyperplanes for consistent hashing
-- Supports both frequency and n-gram based vectorization
+### SimHash Parameters
+- Vector Dimensions: 128
+- Number of Hyperplanes: 64
+- Supported Vectorization Methods:
+  - Frequency-based
+  - N-gram based
 
-### Index Management
-- In-memory index mapping fingerprints to file positions
-- Serialized storage support
-- Efficient similarity search capabilities
+### Performance Features
+- Parallel hyperplane generation
+- Concurrent chunk processing
+- Buffered worker pools
+- Context-based cancellation
+- Efficient memory management
+
+## Development
+
+### Ignored Files
+- `*.txt`: Text files
+- `*.idx`: Index files
+- `*.shard`: Shard data
+- `*.dat`: Data files
+- `.vscode/`: IDE settings
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ## License
 
