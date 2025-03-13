@@ -47,11 +47,12 @@ func (s SimHash) HammingDistance(other SimHash) int {
 func (s SimHash) IsSimilar(other SimHash, threshold int) bool {
 	return s.HammingDistance(other) <= threshold
 }
+
 func GenerateHyperplanes(dimensions, count int) [][]float64 {
 	// Create a deterministic source for reproducibility
 	source := rand.NewSource(42)
 	r := rand.New(source)
-	
+
 	hyperplanes := make([][]float64, count)
 
 	var wg sync.WaitGroup
