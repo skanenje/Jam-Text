@@ -86,16 +86,16 @@ func NewPermutationTable(hashBits, bands int) *PermutationTable {
 	if bands <= 0 || hashBits%bands != 0 {
 		panic("Number of bands must divide hash bits evenly")
 	}
-	
+
 	bandSize := hashBits / bands
 	permutations := make([][]int, bands)
-	
+
 	// Create permutation for each band
 	for i := 0; i < bands; i++ {
 		perm := rand.Perm(hashBits)
 		permutations[i] = perm[:bandSize]
 	}
-	
+
 	return &PermutationTable{
 		permutations: permutations,
 		bandSize:     bandSize,
@@ -130,7 +130,7 @@ func GenerateHyperplanes(dimensions, count int) [][]float64 {
 		wg.Add(1)
 		go func(startIdx int) {
 			defer wg.Done()
-			
+
 			// Create a unique seeded source for this goroutine
 			localSource := rand.NewSource(42 + int64(startIdx))
 			localRand := rand.New(localSource)
@@ -214,6 +214,7 @@ func (nv *NGramVectorizer) TextToVector(text string) []float64 {
 
 	return vector
 }
+
 func (fv *FrequencyVectorizer) TextToVector(text string) []float64 {
 	wordFreq := make(map[string]int)
 
