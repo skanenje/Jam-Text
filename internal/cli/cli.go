@@ -139,6 +139,4 @@ func Run(args []string) error {
 		
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
-
-	return nil
 }
