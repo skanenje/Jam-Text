@@ -2,3 +2,4 @@
 *.idx
 *.shard
 *.dat
+.vscode/
