@@ -125,6 +125,23 @@ const (
 - Thread-safe random number generation
 - Optimized vector operations
 
+## Documentation
+
+Comprehensive documentation is available in the [docs](docs/) directory:
+
+- Package documentation with examples and best practices
+- Architecture and design documents
+- Performance tuning guides
+- API reference
+
+For package-level documentation, use `go doc`:
+
+```bash
+go doc jamtext/internal/simhash
+go doc jamtext/internal/chunk
+go doc jamtext/internal/index
+```
+
 ## Development
 
 ### Ignored Files
