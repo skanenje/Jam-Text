@@ -187,3 +187,28 @@ func (idx *Index) Close() error {
 
 	return nil
 }
+
+// FuzzyLookup finds positions for similar SimHashes
+func (idx *Index) FuzzyLookup(hash simhash.SimHash, threshold int) (map[simhash.SimHash][]int64, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	results := make(map[simhash.SimHash][]int64)
+	found := false
+
+	// Check all in-memory shards
+	for _, shard := range idx.Shards {
+		if shard == nil {
+			continue
+		}
+
+		for existingHash, positions := range shard.SimHashToPos {
+			if existingHash.IsSimilar(hash, threshold) {
+				results[existingHash] = append(results[existingHash], positions...)
+				found = true
+			}
+		}
+	}
+
+	return results, found
+}
