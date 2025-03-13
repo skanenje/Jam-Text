@@ -56,8 +56,6 @@ func (idx *Index) Add(hash simhash.SimHash, pos int64) error {
 	return nil
 }
 
-
-
 // saveShard persists a shard to disk
 func (idx *Index) saveShard(shard *IndexShard) error {
 	filename := filepath.Join(idx.IndexDir, idx.ShardFilename+"."+string(rune('0'+shard.ShardID)))
@@ -141,4 +139,31 @@ func (idx *Index) Lookup(hash simhash.SimHash) ([]int64, error) {
 	}
 
 	return positions, nil
+}
+
+// Stats returns statistics about the index
+func (idx *Index) Stats() map[string]interface{} {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	totalEntries := 0
+	totalPositions := 0
+
+	for _, shard := range idx.Shards {
+		if shard != nil {
+			totalEntries += len(shard.SimHashToPos)
+			for _, positions := range shard.SimHashToPos {
+				totalPositions += len(positions)
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"source_file":     idx.SourceFile,
+		"chunk_size":      idx.ChunkSize,
+		"created":         idx.CreationTime,
+		"shards":          len(idx.Shards),
+		"unique_hashes":   totalEntries,
+		"total_positions": totalPositions,
+	}
 }
