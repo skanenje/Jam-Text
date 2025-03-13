@@ -18,7 +18,6 @@ func TestDefaultChunkOptions(t *testing.T) {
 		t.Errorf("Expected SplitOnBoundary to be true")
 	}
 }
-<<<<<<< HEAD
 
 func TestWorkerPool(t *testing.T) {
 	pool := NewWorkerPool(4)
@@ -43,5 +42,3 @@ func TestWorkerPool(t *testing.T) {
 		t.Errorf("Expected sum %d, got %d", expected, sum)
 	}
 }
-=======
->>>>>>> def53ac (test(chunk): add basic test for DefaultChunkOptions)
