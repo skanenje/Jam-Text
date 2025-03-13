@@ -190,20 +190,12 @@ func TestRunLookupCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create paths for output and log files
-	outputPath := filepath.Join(tmpDir, "lookup_results.txt")
 	logPath := filepath.Join(tmpDir, "lookup.log")
-
-	// Use a known test hash - we'll use a dummy value for now
-	// In a real scenario, you might want to calculate this based on your SimHash implementation
-	testHash := "108fb9408bf49bee" // This is the hash we see in the test output
 
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr bool
-		setup   func() error
-		cleanup func() error
 	}{
 		{
 			name: "successful lookup with defaults",
@@ -211,8 +203,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", testHash,
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 			},
 			wantErr: false,
 		},
@@ -222,8 +213,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", testHash,
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 				"-v",
 				"-log", logPath,
 				"-context-before", "200",
@@ -237,8 +227,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", "nonexistent.idx",
-				"-h", testHash,
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 			},
 			wantErr: true,
 		},
@@ -248,7 +237,6 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-o", outputPath,
 			},
 			wantErr: true,
 		},
@@ -256,28 +244,13 @@ func TestRunLookupCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setup != nil {
-				if err := tt.setup(); err != nil {
-					t.Fatal(err)
-				}
-			}
-
 			err := Run(tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
-			if tt.cleanup != nil {
-				if err := tt.cleanup(); err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			// Clean up output files after each test
-			os.Remove(outputPath)
-			os.Remove(logPath)
 		})
 	}
+
+	// Clean up
+	os.RemoveAll(tmpDir)
 }
-
-
