@@ -22,6 +22,10 @@ func Run(args []string) error {
 		}
 
 		// TODO: Setup chunk options
+
+	case "lookup":
+		// TODO: Add a function to lookup chunks
+
 	default:
 		// TODO: Setup chunk options
 
