@@ -187,6 +187,7 @@ func (idx *Index) Close() error {
 
 	return nil
 }
+<<<<<<< HEAD
 
 // FuzzyLookup finds positions for similar SimHashes
 func (idx *Index) FuzzyLookup(hash simhash.SimHash, threshold int) (map[simhash.SimHash][]int64, bool) {
@@ -212,3 +213,5 @@ func (idx *Index) FuzzyLookup(hash simhash.SimHash, threshold int) (map[simhash.
 
 	return results, found
 }
+=======
+>>>>>>> 41bfd18 (feat: add Close method for index cleanup)
