@@ -69,7 +69,7 @@ func TestRunIndexCommnd(t *testing.T) {
 	}
 
 	// Creating test log file path
-	logPath := filepath.Join(tmpDir, "input.txt")
+	logPath := filepath.Join(tmpDir, "test.log")
 	outputPath := filepath.Join(tmpDir, "output.idx")
 	indexDir := filepath.Join(tmpDir, "index")
 
@@ -81,7 +81,7 @@ func TestRunIndexCommnd(t *testing.T) {
 		cleanup func() error
 	}{
 		{
-			name: "successful index with defautls",
+			name: "successful index with defaults",
 			args: []string{
 				"program",
 				"-cmd", "index",
@@ -98,6 +98,7 @@ func TestRunIndexCommnd(t *testing.T) {
 				"-i", inputPath,
 				"-o", outputPath,
 				"-v",
+				"-log", logPath,
 				"-s", "2048",
 				"-overlap", "128",
 				"-boundary=true",
