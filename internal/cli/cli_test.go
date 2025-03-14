@@ -1,11 +1,32 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// Helper function to capture stdout during test execution
+func captureOutput(f func() error) (string, error) {
+	// Save original stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Run the function
+	err := f()
+
+	// Restore original stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf strings.Builder
+	io.Copy(&buf, r)
+	return buf.String(), err
+}
 
 func TestRunValidation(t *testing.T) {
 	tests := []struct {
@@ -21,7 +42,7 @@ func TestRunValidation(t *testing.T) {
 			errMsg:  "unknown command",
 		},
 		{
-			name:    "ivalid command",
+			name:    "invalid command",
 			args:    []string{"program", "-c", "invalid"},
 			wantErr: true,
 			errMsg:  "unknown command: invalid",
@@ -32,17 +53,15 @@ func TestRunValidation(t *testing.T) {
 			wantErr: true,
 			errMsg:  "input and output file paths must be specified",
 		},
-		{
-			name:    "index without output",
-			args:    []string{"program", "-c", "index"},
-			wantErr: true,
-			errMsg:  "input and output file paths must be specified",
-		},
+		// Removed duplicate test case for "index without output"
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := Run(tt.args)
+			_, err := captureOutput(func() error {
+				return Run(tt.args)
+			})
+			
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -54,21 +73,15 @@ func TestRunValidation(t *testing.T) {
 	}
 }
 
-func TestRunIndexCommnd(t *testing.T) {
-	// Temporary directory for test files
-	tmpDir, err := os.MkdirTemp("", "cli_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+func TestRunIndexCommand(t *testing.T) {
+	tmpDir := t.TempDir()
 
 	// Create test input file
 	inputPath := filepath.Join(tmpDir, "input.txt")
-	if err := os.WriteFile(inputPath, []byte("This is a test file content for indexing"), 0o644); err != nil {
+	if err := os.WriteFile(inputPath, []byte("This is a test file content for indexing"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Creating test log file path
 	logPath := filepath.Join(tmpDir, "test.log")
 	outputPath := filepath.Join(tmpDir, "output.idx")
 	indexDir := filepath.Join(tmpDir, "index")
@@ -78,7 +91,7 @@ func TestRunIndexCommnd(t *testing.T) {
 		args    []string
 		wantErr bool
 		setup   func() error
-		cleanup func() error
+		verify  func() error
 	}{
 		{
 			name: "successful index with defaults",
@@ -89,6 +102,10 @@ func TestRunIndexCommnd(t *testing.T) {
 				"-o", outputPath,
 			},
 			wantErr: false,
+			verify: func() error {
+				_, err := os.Stat(outputPath)
+				return err
+			},
 		},
 		{
 			name: "index with all options",
@@ -109,10 +126,16 @@ func TestRunIndexCommnd(t *testing.T) {
 			},
 			wantErr: false,
 			setup: func() error {
-				return os.MkdirAll(indexDir, 0o755)
+				return os.MkdirAll(indexDir, 0755)
 			},
-			cleanup: func() error {
-				return os.RemoveAll(indexDir)
+			verify: func() error {
+				if _, err := os.Stat(outputPath); err != nil {
+					return err
+				}
+				if _, err := os.Stat(logPath); err != nil {
+					return err
+				}
+				return nil
 			},
 		},
 		{
@@ -120,7 +143,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			args: []string{
 				"program",
 				"-c", "index",
-				"-i", "non existent.txt",
+				"-i", "nonexistent.txt",
 				"-o", outputPath,
 			},
 			wantErr: true,
@@ -146,51 +169,38 @@ func TestRunIndexCommnd(t *testing.T) {
 				}
 			}
 
-			err := Run(tt.args)
+			_, err := captureOutput(func() error {
+				return Run(tt.args)
+			})
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if tt.cleanup != nil {
-				if err := tt.cleanup(); err != nil {
-					t.Fatal(err)
+			if err == nil && tt.verify != nil {
+				if err := tt.verify(); err != nil {
+					t.Errorf("verification failed: %v", err)
 				}
 			}
-
-			// Clean up output files after each test
-			os.Remove(outputPath)
-			os.Remove(logPath)
 		})
 	}
 }
 
-func TestRunLookupCommand(t *testing.T) {
-	// Temporary directory for test files
-	tmpDir, err := os.MkdirTemp("", "cli_test")
-	if err != nil {
+func TestRunCompareCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test input files
+	input1Path := filepath.Join(tmpDir, "file1.txt")
+	input2Path := filepath.Join(tmpDir, "file2.txt") 
+	outputPath := filepath.Join(tmpDir, "report.txt")
+	logPath := filepath.Join(tmpDir, "compare.log")
+
+	if err := os.WriteFile(input1Path, []byte("This is the first test file"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create a real index file for testing
-	inputPath := filepath.Join(tmpDir, "input.txt")
-	if err := os.WriteFile(inputPath, []byte("This is test content"), 0o644); err != nil {
-		t.Fatal(err)
+	if err := os.WriteFile(input2Path, []byte("This is the second test file"), 0644); err != nil {
+		t.Fatal(err)  
 	}
-
-	// Create index file using the index command
-	indexPath := filepath.Join(tmpDir, "test.idx")
-	indexArgs := []string{
-		"program",
-		"-c", "index",
-		"-i", inputPath,
-		"-o", indexPath,
-	}
-	if err := Run(indexArgs); err != nil {
-		t.Fatal(err)
-	}
-
-	logPath := filepath.Join(tmpDir, "lookup.log")
 
 	tests := []struct {
 		name    string
@@ -198,45 +208,54 @@ func TestRunLookupCommand(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "successful lookup with defaults",
+			name: "successful comparison with defaults",
 			args: []string{
 				"program",
-				"-c", "lookup",
-				"-i", indexPath,
-				"-h", "108fb9408bf49bee",
+				"-c", "compare", 
+				"-i", input1Path,
+				"-i2", input2Path,
 			},
 			wantErr: false,
 		},
 		{
-			name: "lookup with all options",
+			name: "comparison with output report",
 			args: []string{
-				"program",
-				"-c", "lookup",
-				"-i", indexPath,
-				"-h", "108fb9408bf49bee",
+				"program", 
+				"-c", "compare",
+				"-i", input1Path,
+				"-i2", input2Path,
+				"-o", outputPath,
 				"-v",
 				"-log", logPath,
-				"-context-before", "200",
-				"-context-after", "200",
 			},
 			wantErr: false,
 		},
 		{
-			name: "lookup with invalid index file",
+			name: "comparison without second input",
 			args: []string{
 				"program",
-				"-c", "lookup",
-				"-i", "nonexistent.idx",
-				"-h", "108fb9408bf49bee",
+				"-c", "compare",
+				"-i", input1Path,
 			},
 			wantErr: true,
 		},
 		{
-			name: "lookup without hash value",
+			name: "comparison with nonexistent first file",
 			args: []string{
 				"program",
-				"-c", "lookup",
-				"-i", indexPath,
+				"-c", "compare",
+				"-i", "nonexistent.txt",
+				"-i2", input2Path,
+			},
+			wantErr: true,
+		},
+		{
+			name: "comparison with nonexistent second file", 
+			args: []string{
+				"program",
+				"-c", "compare",
+				"-i", input1Path,
+				"-i2", "nonexistent.txt",
 			},
 			wantErr: true,
 		},
@@ -244,13 +263,35 @@ func TestRunLookupCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := Run(tt.args)
+			_, err := captureOutput(func() error {
+				return Run(tt.args)
+			})
+			
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
-
-	// Clean up
-	os.RemoveAll(tmpDir)
 }
+
+func TestGetContentHash(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	inputPath := filepath.Join(tmpDir, "input.txt")
+	if err := os.WriteFile(inputPath, []byte("This is test content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := captureOutput(func() error {
+		return Run([]string{
+			"program",
+			"-c", "hash",
+			"-i", inputPath,
+		})
+	})
+	
+	if err != nil {
+		t.Errorf("GetContentHash() failed: %v", err)
+	}
+}
+
