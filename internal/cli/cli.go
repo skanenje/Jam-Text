@@ -3,11 +3,8 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"sort"
-	"strings"
 	"time"
 
 	"jamtext/internal/chunk"
@@ -21,13 +18,13 @@ func Run(args []string) error {
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
 
-
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 	size := fs.Int("s", 4096, "Chunk size in bytes")
 	hashStr := fs.String("h", "", "SimHash value to lookup")
+	secondInput := fs.String("i2", "", "Second input file for comparison")
 
 	// Advanced commands to be added
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
@@ -92,14 +89,9 @@ func Run(args []string) error {
 			stats["unique_hashes"],
 			stats["total_positions"],
 			time.Since(start))
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
-			stats["unique_hashes"],
-			stats["total_positions"],
-			time.Since(start))
 		fmt.Printf("Created %d shards\n", stats["shards"])
 
 		return nil
-
 
 	case "lookup":
 		if *input == "" || *hashStr == "" {
@@ -140,7 +132,6 @@ func Run(args []string) error {
 			} else if contextBeforeStr != "" && contextAfterStr == "" {
 				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
 			} else {
-				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
 				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
 			}
 		}
@@ -248,9 +239,7 @@ func Run(args []string) error {
 			fmt.Printf("No exact matches found. Trying with increased threshold...\n")
 			// Try with a higher threshold
 			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
-			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
 			if !exists {
-				return fmt.Errorf("no similar hashes found within threshold %d", *threshold+2)
 				return fmt.Errorf("no similar hashes found within threshold %d", *threshold+2)
 			}
 		}
@@ -272,7 +261,6 @@ func Run(args []string) error {
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
-
 
 			for _, pos := range positions {
 				showMatchContext(idx.SourceFile, pos, idx.ChunkSize, originalChunk)
@@ -305,45 +293,48 @@ func Run(args []string) error {
 		fmt.Printf("%x\n", hash)
 		return nil
 
-	case "moderate":
-		if *input == "" {
-			return fmt.Errorf("input file must be specified")
+	case "compare":
+		if *input == "" || *secondInput == ""{
+			return fmt.Errorf("first input file must be specified")
 		}
 
-		opts := struct {
-			wordlist    string
-			modLevel    string
-			contextSize int
-		}{
-			wordlist:    *fs.String("wordlist", "offensive_words.txt", "Path to offensive words list"),
-			modLevel:    *fs.String("level", "strict", "Moderation level (strict/lenient)"),
-			contextSize: *fs.Int("context", 50, "Context size in characters"),
+		// secondInput := fs.String("i2", "", "Second input file path")
+		if *secondInput == "" {
+			return fmt.Errorf("second input file must be specified")
 		}
 
-		start := time.Now()
-
-		matches, err := processModeration(*input, opts.wordlist, opts.modLevel, opts.contextSize, logger, *verbose)
+		// Read first file
+		content1, err := os.ReadFile(*input)
 		if err != nil {
-			return fmt.Errorf("moderation failed: %w", err)
+			return fmt.Errorf("error reading %s: %w", *input, err)
 		}
 
-		if *verbose {
-			fmt.Printf("Completed moderation in %v\n", time.Since(start))
+		// Read second file
+		content2, err := os.ReadFile(*secondInput)
+		if err != nil {
+			return fmt.Errorf("error reading %s: %w", *secondInput, err)
 		}
 
-		if matches == 0 {
-			fmt.Printf("No offensive content found\n")
-		} else {
-			fmt.Printf("Found %d instances of offensive content\n", matches)
+		detector := simhash.NewDocumentSimilarity()
+		//in this case the value ignored is the similarity number which is basically the level of similarity.
+		_, details := detector.CompareDocuments(string(content1), string(content2)) 
+
+		fmt.Println(details)
+
+		if *output != "" {
+			report := fmt.Sprintf("Comparison Report\n\nFile 1: %s\nFile 2: %s\n\n%s",
+				*input, *secondInput, details)
+			if err := os.WriteFile(*output, []byte(report), 0o644); err != nil {
+				return fmt.Errorf("error writing report: %w", err)
+			}
+			fmt.Printf("Report saved to %s\n", *output)
 		}
-
-		return nil
-
 	default:
 		// TODO: Setup chunk options
 		printUsage(fs)
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
+	return nil
 }
 
 func min(a, b int) int {
@@ -356,22 +347,24 @@ func min(a, b int) int {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("TextIndex - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("  textindex -cmd <command> [options]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  index    - Create index from text file")
-	fmt.Println("  lookup   - Exact lookup by SimHash")
-	fmt.Println("  fuzzy    - Fuzzy lookup by SimHash with threshold")
-	fmt.Println("  hash     - Calculate SimHash for a file")
-	fmt.Println("  stats    - Show index statistics")
-	fmt.Println("  moderate - Scan text for offensive content")
+	fmt.Println("  index  - Create index from text file")
+	fmt.Println("  lookup - Exact lookup by SimHash")
+	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash   - Calculate SimHash for a file")
+	fmt.Println("  stats  - Show index statistics")
+	fmt.Println("  compare - Compare two text files for similarity")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
 	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
 	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -c moderate -i document.txt -wordlist words.txt -level strict")
+	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
+	fmt.Println("  textindex -c hash -i text.txt")
+	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
+	
 }
-
 
 // Add this function to help verify matches
 func showMatchContext(sourceFile string, position int64, chunkSize int, originalText string) {
@@ -380,7 +373,6 @@ func showMatchContext(sourceFile string, position int64, chunkSize int, original
 	if err != nil {
 		return
 	}
-
 
 	// Find the common substring
 	commonText := findLongestCommonSubstring(content, originalText)
@@ -399,16 +391,13 @@ func findLongestCommonSubstring(s1, s2 string) string {
 		dp[i] = make([]int, n+1)
 	}
 
-
 	// Track maximum length and ending position
 	maxLength := 0
 	endPos := 0
 	startPos := 0
 
-
 	// Fill DP table and track all matches above minimum length
 	minMatchLength := 20 // Minimum length to consider as potential plagiarism
-
 
 	for i := 1; i <= m; i++ {
 		for j := 1; j <= n; j++ {
@@ -423,11 +412,9 @@ func findLongestCommonSubstring(s1, s2 string) string {
 		}
 	}
 
-
 	if maxLength < minMatchLength {
 		return "" // No significant match found
 	}
-
 
 	// Extract the longest common substring
 	return s1[startPos:endPos]

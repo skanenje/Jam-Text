@@ -172,22 +172,30 @@ func TestRunLookupCommand(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create test index file
-	indexPath := filepath.Join(tmpDir, "test.idx")
-	if err := os.WriteFile(indexPath, []byte("mock index data"), 0644); err != nil {
+	// Create a real index file for testing
+	inputPath := filepath.Join(tmpDir, "input.txt")
+	if err := os.WriteFile(inputPath, []byte("This is test content"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create paths for output and log files
-	outputPath := filepath.Join(tmpDir, "lookup_results.txt")
+	// Create index file using the index command
+	indexPath := filepath.Join(tmpDir, "test.idx")
+	indexArgs := []string{
+		"program",
+		"-cmd", "index",
+		"-i", inputPath,
+		"-o", indexPath,
+	}
+	if err := Run(indexArgs); err != nil {
+		t.Fatal(err)
+	}
+
 	logPath := filepath.Join(tmpDir, "lookup.log")
 
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr bool
-		setup   func() error
-		cleanup func() error
 	}{
 		{
 			name: "successful lookup with defaults",
@@ -195,8 +203,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", "f7a3d921",
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 			},
 			wantErr: false,
 		},
@@ -206,8 +213,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-h", "f7a3d921",
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 				"-v",
 				"-log", logPath,
 				"-context-before", "200",
@@ -221,8 +227,7 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", "nonexistent.idx",
-				"-h", "f7a3d921",
-				"-o", outputPath,
+				"-h", "108fb9408bf49bee",
 			},
 			wantErr: true,
 		},
@@ -232,7 +237,6 @@ func TestRunLookupCommand(t *testing.T) {
 				"program",
 				"-cmd", "lookup",
 				"-i", indexPath,
-				"-o", outputPath,
 			},
 			wantErr: true,
 		},
@@ -240,26 +244,13 @@ func TestRunLookupCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setup != nil {
-				if err := tt.setup(); err != nil {
-					t.Fatal(err)
-				}
-			}
-
 			err := Run(tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
-			if tt.cleanup != nil {
-				if err := tt.cleanup(); err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			// Clean up output files after each test
-			os.Remove(outputPath)
-			os.Remove(logPath)
 		})
 	}
+
+	// Clean up
+	os.RemoveAll(tmpDir)
 }
