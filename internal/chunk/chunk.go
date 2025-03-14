@@ -79,8 +79,12 @@ func readTextChunk(filename string, position int64, chunkSize int) (chunk string
 		return "", err
 	}
 
-	// Extract the chunk
-	chunk = string(buffer[:bytesRead])
+	// Check if bytesRead is less than chunkSize
+	if bytesRead < chunkSize {
+		chunk = string(buffer[:bytesRead])
+	} else {
+		chunk = string(buffer)
+	}
 
 	return chunk, nil
 }
