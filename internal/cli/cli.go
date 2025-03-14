@@ -66,8 +66,10 @@ func Run(args []string) error {
 		}
 		defer f.Close()
 		logger = log.New(f, "", log.LstdFlags)
-	} else {
+	} else *verbose {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
+	} else {
+		logger = log.New(io.Discard, "", 0) // Discard logs unless verbose or log file specified
 	}
 
 	// Setup logger
@@ -342,6 +344,10 @@ func Run(args []string) error {
 
 		// Generate hyperplanes
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
+
+		if *verbose {
+			logger.Printf("Generated %d hyperplanes\n", len(hyperplanes))
+		}
 
 		// Read the file content
 		content, err := os.ReadFile(*input)
