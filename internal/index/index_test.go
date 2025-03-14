@@ -219,4 +219,120 @@ func TestFuzzyLookup(t *testing.T) {
 			}
 		})
 	}
+
 }
+
+func TestLookupNonexistentHash(t *testing.T) {
+	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), "")
+
+	tests := []struct {
+		name    string
+		hash    simhash.SimHash
+		wantLen int
+	}{
+		{
+			name:    "lookup nonexistent hash",
+			hash:    0xABCD,
+			wantLen: 0,
+		},
+		{
+			name:    "lookup after adding different hash",
+			hash:    0x1111,
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Add a different hash first
+			if err := idx.Add(0x9999, 100); err != nil {
+				t.Fatalf("Failed to add hash: %v", err)
+			}
+
+			positions, err := idx.Lookup(tt.hash)
+			if err != nil {
+				t.Fatalf("Lookup failed: %v", err)
+			}
+
+			if len(positions) != tt.wantLen {
+				t.Errorf("Expected %d positions, got %d", tt.wantLen, len(positions))
+			}
+		})
+	}
+}
+
+// func TestIndexOperations(t *testing.T) {
+// 	tmpDir := t.TempDir()
+// 	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), tmpDir)
+
+// 	tests := []struct {
+// 		name     string
+// 		hash     simhash.SimHash
+// 		pos      int64
+// 		wantLen  int
+// 		wantPos  int64
+// 		wantErr  bool
+// 	}{
+// 		{
+// 			name:     "add and lookup single hash",
+// 			hash:     0xABCD,
+// 			pos:      500,
+// 			wantLen:  1,
+// 			wantPos:  500,
+// 			wantErr:  false,
+// 		},
+// 		{
+// 			name:     "add multiple positions for same hash",
+// 			hash:     0xABCD,
+// 			pos:      600,
+// 			wantLen:  2,
+// 			wantPos:  600,
+// 			wantErr:  false,
+// 		},
+// 		{
+// 			name:     "add hash with zero position",
+// 			hash:     0xDEF0,
+// 			pos:      0,
+// 			wantLen:  1,
+// 			wantPos:  0,
+// 			wantErr:  false,
+// 		},
+// 		{
+// 			name:     "add hash with negative position",
+// 			hash:     0xDEF0,
+// 			pos:      -1,
+// 			wantLen:  1,
+// 			wantPos:  -1,
+// 			wantErr:  false,
+// 		},
+// 	}
+
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			err := idx.Add(tt.hash, tt.pos)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Errorf("Add() error = %v, wantErr %v", err, tt.wantErr)
+// 			}
+
+// 			positions, err := idx.Lookup(tt.hash)
+// 			if err != nil {
+// 				t.Fatalf("Lookup failed: %v", err)
+// 			}
+
+// 			if len(positions) != tt.wantLen {
+// 				t.Errorf("Expected %d positions, got %d", tt.wantLen, len(positions))
+// 			}
+
+// 			found := false
+// 			for _, pos := range positions {
+// 				if pos == tt.wantPos {
+// 					found = true
+// 					break
+// 				}
+// 			}
+// 			if !found {
+// 				t.Errorf("Position %d not found for hash %x", tt.wantPos, tt.hash)
+// 			}
+// 		})
+// 	}
+// }
