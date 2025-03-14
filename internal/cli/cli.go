@@ -118,7 +118,7 @@ func Run(args []string) error {
 		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
 		for i, pos := range positions[:min(3, len(positions))] {
 			// TODO: Add a function to read chunk contents
-			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
 				return nil
 			}
@@ -128,7 +128,15 @@ func Run(args []string) error {
 				preview = content[:100] + "..."
 			}
 
-			fmt.Printf("%d. Position: %d, Preview: %s\n", i+1, pos, preview)
+			if contextBeforeStr == "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\n    %s\n", i+1, pos, preview)
+			} else if contextBeforeStr == "" && contextAfterStr != "" {
+				fmt.Printf("%d. Position: %d\n\n    %s\n\n Context after: %s\n", i+1, pos, preview, contextAfterStr)
+			} else if contextBeforeStr != "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
+			} else {
+			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
+			}
 		}
 
 		defer idx.Close()
@@ -189,7 +197,7 @@ func Run(args []string) error {
 			// Show sample positions
 			for i, pos := range positions[:min(2, len(positions))] {
 				// TODO: Add a function to read chunk contents
-				content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+				content, _, _, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 				if err != nil {
 					return nil
 				}
