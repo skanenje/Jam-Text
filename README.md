@@ -50,12 +50,12 @@ HASH=$(./jamtext -c hash -i testPlagurism.txt)
 ```
 ## Moderation for offensive language
 ```bash
-jamtext -cmd index -i <input_file> -o <output_file>
+jamtext -c index -i <input_file> -o <output_file>
 
-jamtext -cmd lookup -i <input_file> -o <output_file>
+jamtext -c lookup -i <input_file> -o <output_file>
 
 # Moderate content for offensive language
-jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
+jamtext -c moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
 =======
 ```bash
 # index the desired corpus of data
