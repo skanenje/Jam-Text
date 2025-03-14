@@ -6,18 +6,35 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 
 ✅ Implemented:
 - Parallel chunk processing architecture
-- SimHash core implementation
+- SimHash core implementation with LSH support
+- Dual vectorization methods (frequency and n-gram based)
 - Worker pool for concurrent processing
-- CLI framework
+- Parallel hyperplane generation
+- Basic CLI framework
 - Basic project structure
+- Hamming distance similarity comparison
+- Thread-safe random number generation
 
 🚧 In Progress:
 - Index command implementation
 - Lookup command implementation
 - Index storage serialization
 - Full CLI functionality
+- Additional vectorization methods
+- Performance optimization for large datasets
 
 ## Core Components
+
+### SimHash Implementation
+- 128-dimensional vector space
+- 64-bit fingerprints
+- Parallel hyperplane generation using Box-Muller transform
+- Normalized random hyperplanes
+- Locality-Sensitive Hashing (LSH) support
+- Configurable band signatures for fast similarity search
+- Two vectorization strategies:
+  - Frequency-based: Uses word frequencies with MD5 dimension mapping
+  - N-gram based: Uses character n-grams with normalized vectors
 
 ### Chunk Processing
 - Default chunk size: 4KB
@@ -25,14 +42,6 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Boundary-aware splitting
 - Metadata support per chunk
 - Parallel processing via worker pool
-
-### SimHash Implementation
-- 128-dimensional vector space
-- 64-bit fingerprints
-- Parallel hyperplane generation
-- Box-Muller transform for normal distribution
-- Normalized random hyperplanes
-- Hamming distance similarity comparison
 
 ### Worker Pool
 - Context-based graceful shutdown
@@ -74,31 +83,38 @@ go build ./cmd/main.go
 │   ├── cli/            # Command handling
 │   ├── chunk/          # Text chunking
 │   ├── index/          # Index management
-│   └── simhash/        # SimHash implementation
+│   └── simhash/        # SimHash implementation with LSH
 ├── go.mod
 └── Makefile
 ```
 
 ## Technical Details
 
-### Chunk Options
+### SimHash Parameters
 ```go
-ChunkOptions {
-    ChunkSize:        4096,  // Default chunk size
-    OverlapSize:      256,   // Overlap between chunks
-    SplitOnBoundary:  true,  // Respect text boundaries
-    BoundaryChars:    ".!?\n",
-    MaxChunkSize:     6144,
-    PreserveNewlines: true,
-}
+const (
+    VectorDimensions = 128
+    NumHyperplanes   = 64
+)
 ```
 
-### SimHash Parameters
-- Vector Dimensions: 128
-- Number of Hyperplanes: 64
-- Supported Vectorization Methods:
-  - Frequency-based
-  - N-gram based
+### Vectorization Options
+- Frequency-based vectorization:
+  - Word-level tokenization
+  - MD5-based dimension mapping
+  - Vector normalization
+  - Thread-safe implementation
+- N-gram vectorization:
+  - Configurable n-gram size
+  - Normalized vector output
+  - Fallback for short texts
+  - Efficient n-gram generation
+
+### LSH Configuration
+- Configurable band size
+- Random permutation generation
+- Band signature computation
+- Optimized for similarity search
 
 ### Performance Features
 - Parallel hyperplane generation
@@ -106,6 +122,25 @@ ChunkOptions {
 - Buffered worker pools
 - Context-based cancellation
 - Efficient memory management
+- Thread-safe random number generation
+- Optimized vector operations
+
+## Documentation
+
+Comprehensive documentation is available in the [docs](docs/) directory:
+
+- Package documentation with examples and best practices
+- Architecture and design documents
+- Performance tuning guides
+- API reference
+
+For package-level documentation, use `go doc`:
+
+```bash
+go doc jamtext/internal/simhash
+go doc jamtext/internal/chunk
+go doc jamtext/internal/index
+```
 
 ## Development
 
