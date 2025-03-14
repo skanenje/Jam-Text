@@ -1,13 +1,15 @@
 package main
 
 import (
-	cli "jamtext/internal/cli"
+	"fmt"
 	"os"
+
+	"jamtext/internal/cli"
 )
 
 func main() {
-	// TODO
 	if err := cli.Run(os.Args); err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }
