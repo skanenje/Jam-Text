@@ -60,4 +60,56 @@ func TestNewChunkProcessor(t *testing.T) {
 	}
 }
 
+func TestProcessChunk(t *testing.T) {
+	hyperplanes := simhash.GenerateHyperplanes(128, 64)
+	cp := NewChunkProcessor(2, hyperplanes)
+	defer cp.Close()
 
+	tests := []struct {
+		name    string
+		chunk   Chunk
+		wantPos int64
+	}{
+		{
+			name: "simple chunk",
+			chunk: Chunk{
+				Content:     "test content",
+				StartOffset: 0,
+			},
+			wantPos: 0,
+		},
+		{
+			name: "chunk with offset",
+			chunk: Chunk{
+				Content:     "test content",
+				StartOffset: 100,
+			},
+			wantPos: 100,
+		},
+		{
+			name: "empty chunk",
+			chunk: Chunk{
+				Content:     "",
+				StartOffset: 0,
+			},
+			wantPos: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cp.ProcessChunk(tt.chunk)
+			result := <-cp.Results()
+
+			if result.Error != nil {
+				t.Errorf("Unexpected error: %v", result.Error)
+			}
+			if result.Pos != tt.wantPos {
+				t.Errorf("Expected position %d, got %d", tt.wantPos, result.Pos)
+			}
+			if result.Hash == 0 {
+				t.Error("Expected non-zero hash")
+			}
+		})
+	}
+}
