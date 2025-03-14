@@ -5,30 +5,6 @@ import (
 	"testing"
 )
 
-
-func DefaultChunkOptions() ChunkOptions {
-	return ChunkOptions{
-		ChunkSize:       4096,
-		OverlapSize:     256,
-		SplitOnBoundary: true,
-	}
-}
-
-func TestDefaultChunkOptions(t *testing.T) {
-	opts := DefaultChunkOptions()
-
-	if opts.ChunkSize != 4096 {
-		t.Errorf("Expected ChunkSize 4096, got %d", opts.ChunkSize)
-	}
-	if opts.OverlapSize != 256 {
-		t.Errorf("Expected OverlapSie 256, got %d", opts.OverlapSize)
-	}
-
-	if !opts.SplitOnBoundary {
-		t.Errorf("Expected SplitOnBoundary to be true")
-	}
-}
-
 func TestWorkerPool(t *testing.T) {
 	pool := NewWorkerPool(4)
 	defer pool.Close()
@@ -75,8 +51,6 @@ func TestReadChunk(t *testing.T) {
 		contextBefore int
 		contextAfter  int
 		wantChunk     string
-		wantBefore    string
-		wantAfter     string
 		wantErr       bool
 	}{
 		{
@@ -86,8 +60,6 @@ func TestReadChunk(t *testing.T) {
 			contextBefore: 5,
 			contextAfter:  5,
 			wantChunk:     "is a test ",
-			wantBefore:    "This ",
-			wantAfter:     "conte",
 		},
 		{
 			name:          "read from start",
@@ -96,14 +68,12 @@ func TestReadChunk(t *testing.T) {
 			contextBefore: 0,
 			contextAfter:  5,
 			wantChunk:     "This is a ",
-			wantBefore:    "",
-			wantAfter:     "test ",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chunk, before, after, err := ReadChunk(tmpfile.Name(), tt.position, tt.chunkSize, tt.contextBefore, tt.contextAfter)
+			chunk, err := ReadChunk(tmpfile.Name(), tt.position, tt.chunkSize)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReadChunk() error = %v, wantErr %v", err, tt.wantErr)
@@ -111,12 +81,6 @@ func TestReadChunk(t *testing.T) {
 			}
 			if chunk != tt.wantChunk {
 				t.Errorf("ReadChunk() chunk = %v, want %v", chunk, tt.wantChunk)
-			}
-			if before != tt.wantBefore {
-				t.Errorf("ReadChunk() before = %v, want %v", before, tt.wantBefore)
-			}
-			if after != tt.wantAfter {
-				t.Errorf("ReadChunk() after = %v, want %v", after, tt.wantAfter)
 			}
 		})
 	}
