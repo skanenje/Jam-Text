@@ -19,7 +19,7 @@ func Run(args []string) error {
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
 	
 	// Basic commands
-	cmd := fs.String("cmd", "", "Command to run")
+	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 	size := fs.Int("s", 4096, "Chunk size in bytes")
