@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -39,6 +40,11 @@ func Run(args []string) error {
 	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
 	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
 	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
+
+	// Content moderation flags
+	wordlistPath := fs.String("wordlist", "", "Path to wordlist file")
+	modLevel := fs.String("level", "strict", "Moderation level (strict|lenient)")
+	contextSize := fs.Int("context", 50, "Context size for matches")
 
 	fs.Parse(args[1:])
 
@@ -332,6 +338,25 @@ func Run(args []string) error {
 			}
 			fmt.Printf("Report saved to %s\n", *output)
 		}
+
+	case "moderate":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+		if *wordlistPath == "" {
+			return fmt.Errorf("wordlist file must be specified")
+		}
+		
+		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, logger, *verbose)
+		if err != nil {
+			return err
+		}
+		
+		if matches > 0 {
+			return fmt.Errorf("found %d potentially inappropriate matches", matches)
+		}
+		return nil
+
 	default:
 		// TODO: Setup chunk options
 		printUsage(fs)
@@ -350,7 +375,7 @@ func min(a, b int) int {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("TextIndex - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -cmd <command> [options]")
+	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index  - Create index from text file")
 	fmt.Println("  lookup - Exact lookup by SimHash")
@@ -443,17 +468,34 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		return 0, fmt.Errorf("failed to read wordlist: %w", err)
 	}
 
-	// Store offensive words in a map for quick lookup
-	words := make(map[string]bool)
-	for _, word := range strings.Fields(string(wordlist)) {
-		words[strings.ToLower(strings.TrimSpace(word))] = true
+	// Store offensive words with their severity in a map
+	words := make(map[string]string) // word -> severity
+	scanner := bufio.NewScanner(strings.NewReader(string(wordlist)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Split(line, ",")
+		word := strings.ToLower(strings.TrimSpace(parts[0]))
+		severity := "medium" // default severity
+		if len(parts) > 1 {
+			severity = strings.ToLower(strings.TrimSpace(parts[1]))
+		}
+		words[word] = severity
 	}
 
 	matches := 0
 	lines := strings.Split(string(content), "\n")
 
-	// Track word statistics
-	wordStats := make(map[string]int)
+	// Track word statistics with severity
+	type occurrence struct {
+		count     int
+		severity  string
+		contexts  []string
+		lineNums  []int
+	}
+	wordStats := make(map[string]*occurrence)
 
 	fmt.Printf("\n📑 Content Moderation Report\n")
 	fmt.Printf("========================\n\n")
@@ -463,7 +505,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		lineNum := i + 1
 		foundWords := make(map[string]bool) // Use map to avoid duplicates per line
 
-		for word := range words {
+		for word, severity := range words {
 			var found bool
 
 			if modLevel == "strict" {
@@ -472,16 +514,28 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 					cleanedToken := strings.ToLower(strings.Trim(token, ".,!?\"'"))
 					if cleanedToken == word {
 						foundWords[word] = true
-						wordStats[word]++
 						found = true
+						if _, exists := wordStats[word]; !exists {
+							wordStats[word] = &occurrence{severity: severity}
+						}
+						wordStats[word].count++
+						wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
+						wordStats[word].contexts = append(wordStats[word].contexts, 
+							truncateContext(line, contextSize))
 					}
 				}
 			} else {
 				// Lenient mode: Match if the word appears anywhere in the line
 				if strings.Contains(strings.ToLower(line), word) {
 					foundWords[word] = true
-					wordStats[word]++
 					found = true
+					if _, exists := wordStats[word]; !exists {
+						wordStats[word] = &occurrence{severity: severity}
+					}
+					wordStats[word].count++
+					wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
+					wordStats[word].contexts = append(wordStats[word].contexts, 
+						truncateContext(line, contextSize))
 				}
 			}
 
@@ -490,19 +544,28 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 			}
 		}
 
-		// If any offensive words were found, print them
+		// If any offensive words were found, print them by severity
 		if len(foundWords) > 0 {
 			fmt.Printf("🚨 Line %d:\n", lineNum)
 			fmt.Printf("   %s\n", line)
 
-			// Convert map keys to slice for sorting
-			var words []string
+			// Group words by severity
+			severityGroups := make(map[string][]string)
 			for w := range foundWords {
-				words = append(words, w)
+				sev := words[w]
+				severityGroups[sev] = append(severityGroups[sev], w)
 			}
-			sort.Strings(words)
 
-			fmt.Printf("❌ Found: %s\n", strings.Join(words, ", "))
+			// Print words by severity
+			for _, sev := range []string{"high", "medium", "low"} {
+				if words, ok := severityGroups[sev]; ok {
+					sort.Strings(words)
+					fmt.Printf("❌ %s severity: %s\n", 
+						strings.Title(sev), 
+						strings.Join(words, ", "))
+				}
+			}
+
 			if verbose {
 				fmt.Printf("   Context: %s\n", truncateContext(line, contextSize))
 			}
@@ -516,25 +579,43 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		fmt.Printf("==================\n")
 		fmt.Printf("Total matches found: %d\n\n", matches)
 
-		// Sort words by frequency
-		type wordCount struct {
-			word  string
-			count int
-		}
-		var sorted []wordCount
-		for word, count := range wordStats {
-			sorted = append(sorted, wordCount{word, count})
-		}
-		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].count > sorted[j].count
-		})
+		// Print statistics by severity
+		for _, severity := range []string{"high", "medium", "low"} {
+			fmt.Printf("\n%s Severity Words:\n", strings.Title(severity))
+			fmt.Printf("------------------\n")
+			
+			// Collect words of current severity
+			var sevWords []struct {
+				word  string
+				stats *occurrence
+			}
+			for word, stats := range wordStats {
+				if stats.severity == severity {
+					sevWords = append(sevWords, struct {
+						word  string
+						stats *occurrence
+					} {word, stats})
+				}
+			}
 
-		fmt.Printf("Word Frequency:\n")
-		for _, wc := range sorted {
-			fmt.Printf("- '%s': %d occurrence(s)\n", wc.word, wc.count)
+			// Sort by frequency
+			sort.Slice(sevWords, func(i, j int) bool {
+				return sevWords[i].stats.count > sevWords[j].stats.count
+			})
+
+			// Print details
+			for _, w := range sevWords {
+				fmt.Printf("'%s' (%d occurrences)\n", w.word, w.stats.count)
+				if verbose {
+					for i, context := range w.stats.contexts {
+						fmt.Printf("  Line %d: %s\n", 
+							w.stats.lineNums[i], context)
+					}
+				}
+			}
 		}
 	} else {
-		fmt.Printf("\n✅ No offensive content found\n")
+		fmt.Println("✅ No concerning content found")
 	}
 
 	return matches, nil
@@ -544,5 +625,5 @@ func truncateContext(text string, size int) string {
 	if len(text) <= size {
 		return text
 	}
-	return text[:size] + "..."
+	return text[:size/2] + "..." + text[len(text)-size/2:]
 }
