@@ -46,69 +46,59 @@ type Logger interface {
 	Printf(format string, v ...interface{})
 }
 
-func ReadChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+func ReadChunk(filename string, position int64, chunkSize int) (chunk string, err error) {
 	// Check file extension
 	ext := strings.ToLower(filepath.Ext(filename))
 	
 	switch ext {
 	case ".pdf":
-		return readPDFChunk(filename, position, chunkSize, contextBefore, contextAfter)
+		return readPDFChunk(filename, position, chunkSize)
 	case ".docx":
-		return readDocxChunk(filename, position, chunkSize, contextBefore, contextAfter)
+		return readDocxChunk(filename, position, chunkSize)
 	default:
-		return readTextChunk(filename, position, chunkSize, contextBefore, contextAfter)
+		return readTextChunk(filename, position, chunkSize)
 	}
 }
 
-func readTextChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+func readTextChunk(filename string, position int64, chunkSize int) (chunk string, err error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
 	defer file.Close()
 
 	// Read the content
-	buffer := make([]byte, contextBefore+chunkSize+contextAfter)
-	_, err = file.Seek(position-int64(contextBefore), 0)
+	buffer := make([]byte, chunkSize)
+	_, err = file.Seek(position, 0)
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
 
 	bytesRead, err := file.Read(buffer)
 	if err != nil && err != io.EOF {
-		return "", "", "", err
+		return "", err
 	}
 
-	// Calculate boundaries
-	contextBeforeStart := 0
-	chunkStart := contextBefore
-	chunkEnd := chunkStart + chunkSize
-	if chunkEnd > bytesRead {
-		chunkEnd = bytesRead
+	// Check if bytesRead is less than chunkSize
+	if bytesRead < chunkSize {
+		chunk = string(buffer[:bytesRead])
+	} else {
+		chunk = string(buffer)
 	}
 
-	// Extract the chunks
-	if contextBefore > 0 {
-		contextBeforeStr = string(buffer[contextBeforeStart:chunkStart])
-	}
-	chunk = string(buffer[chunkStart:chunkEnd])
-	if chunkEnd < bytesRead {
-		contextAfterStr = string(buffer[chunkEnd:bytesRead])
-	}
-
-	return chunk, contextBeforeStr, contextAfterStr, nil
+	return chunk, nil
 }
 
-func readPDFChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+func readPDFChunk(filename string, position int64, chunkSize int) (chunk string, err error) {
 	// Check if pdftotext is installed
 	if _, err := exec.LookPath("pdftotext"); err != nil {
-		return "", "", "", fmt.Errorf("pdftotext not found. Please install poppler-utils")
+		return "", fmt.Errorf("pdftotext not found. Please install poppler-utils")
 	}
 
 	// Create a temporary file for the text output
 	tmpFile, err := os.CreateTemp("", "pdf_*.txt")
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
@@ -116,23 +106,23 @@ func readPDFChunk(filename string, position int64, chunkSize int, contextBefore,
 	// Run pdftotext
 	cmd := exec.Command("pdftotext", filename, tmpFile.Name())
 	if err := cmd.Run(); err != nil {
-		return "", "", "", err
+		return "", err
 	}
 
 	// Read the text file chunk
-	return readTextChunk(tmpFile.Name(), position, chunkSize, contextBefore, contextAfter)
+	return readTextChunk(tmpFile.Name(), position, chunkSize)
 }
 
-func readDocxChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+func readDocxChunk(filename string, position int64, chunkSize int) (chunk string, err error) {
 	// Check if pandoc is installed
 	if _, err := exec.LookPath("pandoc"); err != nil {
-		return "", "", "", fmt.Errorf("pandoc not found. Please install pandoc")
+		return "", fmt.Errorf("pandoc not found. Please install pandoc")
 	}
 
 	// Create a temporary file for the text output
 	tmpFile, err := os.CreateTemp("", "docx_*.txt")
 	if err != nil {
-		return "", "", "", err
+		return "", err
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
@@ -140,9 +130,9 @@ func readDocxChunk(filename string, position int64, chunkSize int, contextBefore
 	// Run pandoc to convert docx to text
 	cmd := exec.Command("pandoc", "-f", "docx", "-t", "plain", filename, "-o", tmpFile.Name())
 	if err := cmd.Run(); err != nil {
-		return "", "", "", fmt.Errorf("error converting docx: %w", err)
+		return "", fmt.Errorf("error converting docx: %w", err)
 	}
 
 	// Read the text file chunk
-	return readTextChunk(tmpFile.Name(), position, chunkSize, contextBefore, contextAfter)
+	return readTextChunk(tmpFile.Name(), position, chunkSize)
 }
