@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"io"
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
@@ -16,7 +17,7 @@ func Run(args []string) error {
 
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
-	
+
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
@@ -34,7 +35,6 @@ func Run(args []string) error {
 	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
 	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
 	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
-	
 
 	fs.Parse(args[1:])
 
@@ -47,8 +47,10 @@ func Run(args []string) error {
 		}
 		defer f.Close()
 		logger = log.New(f, "", log.LstdFlags)
-	} else {
+	} else if *verbose {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
+	} else {
+		logger = log.New(io.Discard, "", 0) // Discard logs unless verbose or log file specified
 	}
 
 	switch *cmd {
@@ -82,14 +84,14 @@ func Run(args []string) error {
 		}
 
 		stats := idx.Stats()
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n", 
-		                    stats["unique_hashes"], 
-		                    stats["total_positions"], 
-		                    time.Since(start))
+		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
+			stats["unique_hashes"],
+			stats["total_positions"],
+			time.Since(start))
 		fmt.Printf("Created %d shards\n", stats["shards"])
 
 		return nil
-		
+
 	case "lookup":
 		if *input == "" || *hashStr == "" {
 			return fmt.Errorf("input and hash must be specified")
@@ -129,7 +131,7 @@ func Run(args []string) error {
 			} else if contextBeforeStr != "" && contextAfterStr == "" {
 				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
 			} else {
-			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
+				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
 			}
 		}
 
@@ -177,9 +179,9 @@ func Run(args []string) error {
 		if !exists {
 			fmt.Printf("No exact matches found. Trying with increased threshold...\n")
 			// Try with a higher threshold
-			resultMap, exists = idx.FuzzyLookup(hash, *threshold + 2)
+			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
 			if !exists {
-				return fmt.Errorf("no similar hashes found within threshold %d", *threshold + 2)
+				return fmt.Errorf("no similar hashes found within threshold %d", *threshold+2)
 			}
 		}
 
@@ -200,7 +202,7 @@ func Run(args []string) error {
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
-			
+
 			for _, pos := range positions {
 				showMatchContext(idx.SourceFile, pos, idx.ChunkSize, originalChunk)
 			}
@@ -217,6 +219,10 @@ func Run(args []string) error {
 		// Generate hyperplanes
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
+		if *verbose {
+			logger.Printf("Generated %d hyperplanes\n", len(hyperplanes))
+		}
+
 		// Read the file content
 		content, err := os.ReadFile(*input)
 		if err != nil {
@@ -225,7 +231,7 @@ func Run(args []string) error {
 
 		// Calculate hash
 		hash := simhash.Calculate(string(content), hyperplanes)
-		fmt.Printf("%x\n", hash)
+		fmt.Printf("%x\n", hash) // Only output the hash
 		return nil
 
 	default:
@@ -260,6 +266,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 }
+
 // Add this function to help verify matches
 func showMatchContext(sourceFile string, position int64, chunkSize int, originalText string) {
 	// Read the chunk from position
@@ -267,7 +274,7 @@ func showMatchContext(sourceFile string, position int64, chunkSize int, original
 	if err != nil {
 		return
 	}
-	
+
 	// Find the common substring
 	commonText := findLongestCommonSubstring(content, originalText)
 	if len(commonText) > 50 {
@@ -284,15 +291,15 @@ func findLongestCommonSubstring(s1, s2 string) string {
 	for i := range dp {
 		dp[i] = make([]int, n+1)
 	}
-	
+
 	// Track maximum length and ending position
 	maxLength := 0
 	endPos := 0
 	startPos := 0
-	
+
 	// Fill DP table and track all matches above minimum length
 	minMatchLength := 20 // Minimum length to consider as potential plagiarism
-	
+
 	for i := 1; i <= m; i++ {
 		for j := 1; j <= n; j++ {
 			if s1[i-1] == s2[j-1] {
@@ -305,11 +312,11 @@ func findLongestCommonSubstring(s1, s2 string) string {
 			}
 		}
 	}
-	
+
 	if maxLength < minMatchLength {
 		return "" // No significant match found
 	}
-	
+
 	// Extract the longest common substring
 	return s1[startPos:endPos]
 }
