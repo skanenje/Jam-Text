@@ -53,6 +53,8 @@ func ReadChunk(filename string, position int64, chunkSize int, contextBefore, co
 	switch ext {
 	case ".pdf":
 		return readPDFChunk(filename, position, chunkSize, contextBefore, contextAfter)
+	case ".docx":
+		return readDocxChunk(filename, position, chunkSize, contextBefore, contextAfter)
 	default:
 		return readTextChunk(filename, position, chunkSize, contextBefore, contextAfter)
 	}
@@ -115,6 +117,30 @@ func readPDFChunk(filename string, position int64, chunkSize int, contextBefore,
 	cmd := exec.Command("pdftotext", filename, tmpFile.Name())
 	if err := cmd.Run(); err != nil {
 		return "", "", "", err
+	}
+
+	// Read the text file chunk
+	return readTextChunk(tmpFile.Name(), position, chunkSize, contextBefore, contextAfter)
+}
+
+func readDocxChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+	// Check if pandoc is installed
+	if _, err := exec.LookPath("pandoc"); err != nil {
+		return "", "", "", fmt.Errorf("pandoc not found. Please install pandoc")
+	}
+
+	// Create a temporary file for the text output
+	tmpFile, err := os.CreateTemp("", "docx_*.txt")
+	if err != nil {
+		return "", "", "", err
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Run pandoc to convert docx to text
+	cmd := exec.Command("pandoc", "-f", "docx", "-t", "plain", filename, "-o", tmpFile.Name())
+	if err := cmd.Run(); err != nil {
+		return "", "", "", fmt.Errorf("error converting docx: %w", err)
 	}
 
 	// Read the text file chunk
