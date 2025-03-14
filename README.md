@@ -47,6 +47,15 @@ HASH=$(./jamtext -c hash -i testPlagurism.txt)
 ./jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
 
 ```
+## Moderation for offensive language
+```bash
+jamtext -cmd index -i <input_file> -o <output_file>
+
+jamtext -cmd lookup -i <input_file> -o <output_file>
+
+# Moderate content for offensive language
+jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
+```
 
 ## Building
 
