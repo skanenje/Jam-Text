@@ -14,6 +14,9 @@ import (
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func Run(args []string) error {
@@ -76,9 +79,9 @@ func Run(args []string) error {
 
 		// Create index with LSH configuration
 		idx := index.New(*input, *size, hyperplanes, *indexDir)
-		
+
 		// Configure LSH table with specified parameters
-		idx.LSHTable = simhash.NewPermutationTable(*lshBands * *bandSize, *lshBands)
+		idx.LSHTable = simhash.NewPermutationTable(*lshBands**bandSize, *lshBands)
 
 		opts := chunk.ChunkOptions{
 			ChunkSize:        *size,
@@ -479,7 +482,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 				if words, ok := severityGroups[sev]; ok {
 					sort.Strings(words)
 					fmt.Printf("❌ %s severity: %s\n",
-						strings.Title(sev),
+						cases.Title(language.English).String(sev),
 						strings.Join(words, ", "))
 				}
 			}
