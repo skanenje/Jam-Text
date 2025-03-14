@@ -1,19 +1,12 @@
-# Documentation
+# Jam-Text Documentation
 
-## Package Documentation
-- [SimHash](simhash.md) - Text fingerprinting implementation
-- [Chunk](chunk.md) - Text chunking system
-- [Index](index.md) - Index management and storage
-- [CLI](cli.md) - Command-line interface
+## Core Documentation
+- [Features Guide](features.md) - Core features and capabilities
+- [CLI Reference](cli.md) - Command-line interface documentation
 
-## Architecture
-- [Design](architecture/design.md)
-- [Storage](architecture/storage.md)
+## Technical Documentation
+- [SimHash Implementation](simhash.md) - Text fingerprinting and similarity detection
+- [Chunking System](chunking.md) - Text segmentation and processing
 
-## Guides
-- [Getting Started](guides/getting-started.md)
-- [Configuration](guides/configuration.md)
-
-## API Reference
-- [API Documentation](api/README.md)
-- [Examples](api/examples.md)
+## Contributing
+- [Contributing Guide](../CONTRIBUTING.md) - Guidelines for contributors

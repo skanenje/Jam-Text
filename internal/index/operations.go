@@ -39,13 +39,29 @@ func New(sourceFile string, chunkSize int, hyperplanes [][]float64, indexDir str
 	}
 }
 
-// Add adds a SimHash and position to the index
+// Add adds a SimHash and position to the index with LSH support
 func (idx *Index) Add(hash simhash.SimHash, pos int64) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
+	// Add to regular index
 	shard := idx.Shards[idx.ActiveShard]
 	shard.SimHashToPos[hash] = append(shard.SimHashToPos[hash], pos)
+
+	// Add to LSH buckets
+	signatures := idx.LSHTable.GetBandSignatures(hash)
+	for i, sig := range signatures {
+		bucketKey := fmt.Sprintf("%d:%d", i, sig)
+		if shard.LSHBuckets == nil {
+			shard.LSHBuckets = make(map[string]*LSHBucket)
+		}
+		if shard.LSHBuckets[bucketKey] == nil {
+			shard.LSHBuckets[bucketKey] = &LSHBucket{
+				hashes: make(map[simhash.SimHash]struct{}),
+			}
+		}
+		shard.LSHBuckets[bucketKey].hashes[hash] = struct{}{}
+	}
 
 	if len(shard.SimHashToPos) >= MaxShardSize {
 		if err := idx.rotateShard(); err != nil {
@@ -188,27 +204,51 @@ func (idx *Index) Close() error {
 	return nil
 }
 
-// FuzzyLookup finds positions for similar SimHashes
+// FuzzyLookup finds positions for similar SimHashes using LSH
 func (idx *Index) FuzzyLookup(hash simhash.SimHash, threshold int) (map[simhash.SimHash][]int64, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
+	candidates := make(map[simhash.SimHash]struct{})
+	signatures := idx.LSHTable.GetBandSignatures(hash)
+
+	// Collect candidates from LSH buckets
+	for i, sig := range signatures {
+		bucketKey := fmt.Sprintf("%d:%d", i, sig)
+		for _, shard := range idx.Shards {
+			if shard == nil || shard.LSHBuckets == nil {
+				continue
+			}
+			if bucket := shard.LSHBuckets[bucketKey]; bucket != nil {
+				for candidateHash := range bucket.hashes {
+					candidates[candidateHash] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Verify candidates with Hamming distance
 	results := make(map[simhash.SimHash][]int64)
 	found := false
 
-	// Check all in-memory shards
-	for _, shard := range idx.Shards {
-		if shard == nil {
-			continue
-		}
-
-		for existingHash, positions := range shard.SimHashToPos {
-			if existingHash.IsSimilar(hash, threshold) {
-				results[existingHash] = append(results[existingHash], positions...)
-				found = true
+	for candidateHash := range candidates {
+		if candidateHash.IsSimilar(hash, threshold) {
+			for _, shard := range idx.Shards {
+				if shard == nil {
+					continue
+				}
+				if positions, ok := shard.SimHashToPos[candidateHash]; ok {
+					results[candidateHash] = append(results[candidateHash], positions...)
+					found = true
+				}
 			}
 		}
 	}
 
 	return results, found
+}
+
+// LSHBucket represents a collection of similar hashes
+type LSHBucket struct {
+	hashes map[simhash.SimHash]struct{}
 }
