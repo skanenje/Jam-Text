@@ -3,6 +3,12 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
@@ -27,7 +33,7 @@ func Run(args []string) error {
 	// TODO: Add more flags
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
-	
+
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
@@ -45,14 +51,9 @@ func Run(args []string) error {
 	maxChunkSize := fs.Int("max-size", 6144, "Maximum chunk size in bytes")
 	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
-	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
-	splitBoundary := fs.Bool("boundary", true, "Split on text boundaries")
-	boundaryChars := fs.String("boundary-chars", ".!?\n", "Text boundaries to split on")
-	maxChunkSize := fs.Int("max-size", 6144, "Maximum chunk size in bytes")
-	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
-	indexDir := fs.String("index-dir", "", "Directory to store index shards")
-
-	
+	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
+	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
+	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
 
 	fs.Parse(args[1:])
 
@@ -72,7 +73,20 @@ func Run(args []string) error {
 	// Setup logger
 	var logger *log.Logger
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+		if err != nil {
+			return fmt.Errorf("error opening log file: %v", err)
+		}
+		defer f.Close()
+		logger = log.New(f, "", log.LstdFlags)
+	} else {
+		logger = log.New(os.Stderr, "", log.LstdFlags)
+	}
+
+	// Setup logger
+	var logger *log.Logger
+	if *logFile != "" {
+		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 		if err != nil {
 			return fmt.Errorf("error opening log file: %v", err)
 		}
@@ -182,14 +196,14 @@ func Run(args []string) error {
 		}
 
 		stats := idx.Stats()
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n", 
-		                    stats["unique_hashes"], 
-		                    stats["total_positions"], 
-		                    time.Since(start))
+		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
+			stats["unique_hashes"],
+			stats["total_positions"],
+			time.Since(start))
 		fmt.Printf("Created %d shards\n", stats["shards"])
 
 		return nil
-		
+
 	case "lookup":
 		if *input == "" || *hashStr == "" {
 			return fmt.Errorf("index file and hash must be specified")
@@ -229,7 +243,7 @@ func Run(args []string) error {
 			} else if contextBeforeStr != "" && contextAfterStr == "" {
 				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
 			} else {
-			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
+				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
 			}
 		}
 
@@ -289,9 +303,9 @@ func Run(args []string) error {
 		if !exists {
 			fmt.Printf("No exact matches found. Trying with increased threshold...\n")
 			// Try with a higher threshold
-			resultMap, exists = idx.FuzzyLookup(hash, *threshold + 2)
+			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
 			if !exists {
-				return fmt.Errorf("no similar hashes found within threshold %d", *threshold + 2)
+				return fmt.Errorf("no similar hashes found within threshold %d", *threshold+2)
 			}
 		}
 
@@ -312,7 +326,7 @@ func Run(args []string) error {
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
-			
+
 			for _, pos := range positions {
 				showMatchContext(idx.SourceFile, pos, idx.ChunkSize, originalChunk)
 			}
@@ -320,7 +334,59 @@ func Run(args []string) error {
 
 		defer idx.Close()
 		return nil
->>>>>>> 574c0c5 (Fix: Absence of content before or after the main content)
+
+	case "hash":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		// Generate hyperplanes
+		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
+
+		// Read the file content
+		content, err := os.ReadFile(*input)
+		if err != nil {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+
+		// Calculate hash
+		hash := simhash.Calculate(string(content), hyperplanes)
+		fmt.Printf("%x\n", hash)
+		return nil
+
+	case "moderate":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		opts := struct {
+			wordlist    string
+			modLevel    string
+			contextSize int
+		}{
+			wordlist:    *fs.String("wordlist", "offensive_words.txt", "Path to offensive words list"),
+			modLevel:    *fs.String("level", "strict", "Moderation level (strict/lenient)"),
+			contextSize: *fs.Int("context", 50, "Context size in characters"),
+		}
+
+		start := time.Now()
+
+		matches, err := processModeration(*input, opts.wordlist, opts.modLevel, opts.contextSize, logger, *verbose)
+		if err != nil {
+			return fmt.Errorf("moderation failed: %w", err)
+		}
+
+		if *verbose {
+			fmt.Printf("Completed moderation in %v\n", time.Since(start))
+		}
+
+		if matches == 0 {
+			fmt.Printf("No offensive content found\n")
+		} else {
+			fmt.Printf("Found %d instances of offensive content\n", matches)
+		}
+
+		return nil
 
 	default:
 		// TODO: Setup chunk options
@@ -341,19 +407,20 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nUsage:")
 	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  index  - Create index from text file")
-	fmt.Println("  lookup - Exact lookup by SimHash")
-	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
-	fmt.Println("  hash   - Calculate SimHash for a file")
-	fmt.Println("  stats  - Show index statistics")
+	fmt.Println("  index    - Create index from text file")
+	fmt.Println("  lookup   - Exact lookup by SimHash")
+	fmt.Println("  fuzzy    - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash     - Calculate SimHash for a file")
+	fmt.Println("  stats    - Show index statistics")
+	fmt.Println("  moderate - Scan text for offensive content")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
 	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
 	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
-	fmt.Println("  textindex -c hash -i text.txt")
+	fmt.Println("  textindex -c moderate -i document.txt -wordlist words.txt -level strict")
 }
+
 // Add this function to help verify matches
 func showMatchContext(sourceFile string, position int64, chunkSize int, originalText string) {
 	// Read the chunk from position
@@ -361,7 +428,7 @@ func showMatchContext(sourceFile string, position int64, chunkSize int, original
 	if err != nil {
 		return
 	}
-	
+
 	// Find the common substring
 	commonText := findLongestCommonSubstring(content, originalText)
 	if len(commonText) > 50 {
@@ -378,15 +445,15 @@ func findLongestCommonSubstring(s1, s2 string) string {
 	for i := range dp {
 		dp[i] = make([]int, n+1)
 	}
-	
+
 	// Track maximum length and ending position
 	maxLength := 0
 	endPos := 0
 	startPos := 0
-	
+
 	// Fill DP table and track all matches above minimum length
 	minMatchLength := 20 // Minimum length to consider as potential plagiarism
-	
+
 	for i := 1; i <= m; i++ {
 		for j := 1; j <= n; j++ {
 			if s1[i-1] == s2[j-1] {
@@ -399,11 +466,136 @@ func findLongestCommonSubstring(s1, s2 string) string {
 			}
 		}
 	}
-	
+
 	if maxLength < minMatchLength {
 		return "" // No significant match found
 	}
-	
+
 	// Extract the longest common substring
 	return s1[startPos:endPos]
+}
+
+// Add this struct to store word occurrences
+type WordOccurrence struct {
+	Word      string
+	Count     int
+	Locations []struct {
+		LineNum int
+		Context string
+	}
+}
+
+func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, logger *log.Logger, verbose bool) (int, error) {
+	content, err := os.ReadFile(inputPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read input file: %w", err)
+	}
+
+	wordlist, err := os.ReadFile(wordlistPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read wordlist: %w", err)
+	}
+
+	// Store offensive words in a map for quick lookup
+	words := make(map[string]bool)
+	for _, word := range strings.Fields(string(wordlist)) {
+		words[strings.ToLower(strings.TrimSpace(word))] = true
+	}
+
+	matches := 0
+	lines := strings.Split(string(content), "\n")
+
+	// Track word statistics
+	wordStats := make(map[string]int)
+
+	fmt.Printf("\n📑 Content Moderation Report\n")
+	fmt.Printf("========================\n\n")
+
+	// Iterate over each line and check for offensive words
+	for i, line := range lines {
+		lineNum := i + 1
+		foundWords := make(map[string]bool) // Use map to avoid duplicates per line
+
+		for word := range words {
+			var found bool
+
+			if modLevel == "strict" {
+				// Strict mode: Match only whole words
+				for _, token := range strings.Fields(line) {
+					cleanedToken := strings.ToLower(strings.Trim(token, ".,!?\"'"))
+					if cleanedToken == word {
+						foundWords[word] = true
+						wordStats[word]++
+						found = true
+					}
+				}
+			} else {
+				// Lenient mode: Match if the word appears anywhere in the line
+				if strings.Contains(strings.ToLower(line), word) {
+					foundWords[word] = true
+					wordStats[word]++
+					found = true
+				}
+			}
+
+			if found {
+				matches++
+			}
+		}
+
+		// If any offensive words were found, print them
+		if len(foundWords) > 0 {
+			fmt.Printf("🚨 Line %d:\n", lineNum)
+			fmt.Printf("   %s\n", line)
+
+			// Convert map keys to slice for sorting
+			var words []string
+			for w := range foundWords {
+				words = append(words, w)
+			}
+			sort.Strings(words)
+
+			fmt.Printf("❌ Found: %s\n", strings.Join(words, ", "))
+			if verbose {
+				fmt.Printf("   Context: %s\n", truncateContext(line, contextSize))
+			}
+			fmt.Println()
+		}
+	}
+
+	// Print summary statistics
+	if matches > 0 {
+		fmt.Printf("\n📊 Summary Statistics\n")
+		fmt.Printf("==================\n")
+		fmt.Printf("Total matches found: %d\n\n", matches)
+
+		// Sort words by frequency
+		type wordCount struct {
+			word  string
+			count int
+		}
+		var sorted []wordCount
+		for word, count := range wordStats {
+			sorted = append(sorted, wordCount{word, count})
+		}
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].count > sorted[j].count
+		})
+
+		fmt.Printf("Word Frequency:\n")
+		for _, wc := range sorted {
+			fmt.Printf("- '%s': %d occurrence(s)\n", wc.word, wc.count)
+		}
+	} else {
+		fmt.Printf("\n✅ No offensive content found\n")
+	}
+
+	return matches, nil
+}
+
+func truncateContext(text string, size int) string {
+	if len(text) <= size {
+		return text
+	}
+	return text[:size] + "..."
 }
