@@ -196,7 +196,7 @@ func TestFuzzyLookup(t *testing.T) {
 
 			totalMatches := 0
 			foundPositions := make(map[int64]bool)
-			
+
 			// Count total matches and collect all positions
 			for _, positions := range results {
 				totalMatches++
@@ -219,7 +219,6 @@ func TestFuzzyLookup(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestLookupNonexistentHash(t *testing.T) {
@@ -261,78 +260,44 @@ func TestLookupNonexistentHash(t *testing.T) {
 	}
 }
 
-// func TestIndexOperations(t *testing.T) {
-// 	tmpDir := t.TempDir()
-// 	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), tmpDir)
+func TestSaveAndLoad(t *testing.T) {
+	tmpDir := t.TempDir()
+	sourceFile := "test.txt"
+	chunkSize := 4096
+	hyperplanes := simhash.GenerateHyperplanes(128, 64)
 
-// 	tests := []struct {
-// 		name     string
-// 		hash     simhash.SimHash
-// 		pos      int64
-// 		wantLen  int
-// 		wantPos  int64
-// 		wantErr  bool
-// 	}{
-// 		{
-// 			name:     "add and lookup single hash",
-// 			hash:     0xABCD,
-// 			pos:      500,
-// 			wantLen:  1,
-// 			wantPos:  500,
-// 			wantErr:  false,
-// 		},
-// 		{
-// 			name:     "add multiple positions for same hash",
-// 			hash:     0xABCD,
-// 			pos:      600,
-// 			wantLen:  2,
-// 			wantPos:  600,
-// 			wantErr:  false,
-// 		},
-// 		{
-// 			name:     "add hash with zero position",
-// 			hash:     0xDEF0,
-// 			pos:      0,
-// 			wantLen:  1,
-// 			wantPos:  0,
-// 			wantErr:  false,
-// 		},
-// 		{
-// 			name:     "add hash with negative position",
-// 			hash:     0xDEF0,
-// 			pos:      -1,
-// 			wantLen:  1,
-// 			wantPos:  -1,
-// 			wantErr:  false,
-// 		},
-// 	}
+	// Create and populate index
+	idx := New(sourceFile, chunkSize, hyperplanes, tmpDir)
+	hash1 := simhash.SimHash(0x1234)
+	pos1 := int64(100)
+	if err := idx.Add(hash1, pos1); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			err := idx.Add(tt.hash, tt.pos)
-// 			if (err != nil) != tt.wantErr {
-// 				t.Errorf("Add() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
+	hash2 := simhash.SimHash(0x5678)
+	pos2 := int64(200)
+	if err := idx.Add(hash2, pos2); err != nil {
+		t.Fatalf("AAdd faile: %v", err)
+	}
 
-// 			positions, err := idx.Lookup(tt.hash)
-// 			if err != nil {
-// 				t.Fatalf("Lookup failed: %v", err)
-// 			}
+	// Save index
+	indexFile := filepath.Join(tmpDir, "index.gob")
+	if err := Save(idx, indexFile); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
 
-// 			if len(positions) != tt.wantLen {
-// 				t.Errorf("Expected %d positions, got %d", tt.wantLen, len(positions))
-// 			}
+	loadedIdx, err := Load(indexFile)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
 
-// 			found := false
-// 			for _, pos := range positions {
-// 				if pos == tt.wantPos {
-// 					found = true
-// 					break
-// 				}
-// 			}
-// 			if !found {
-// 				t.Errorf("Position %d not found for hash %x", tt.wantPos, tt.hash)
-// 			}
-// 		})
-// 	}
-// }
+	// Verify loaded data
+	positions1, err := loadedIdx.Lookup(hash1)
+	if err != nil || len(positions1) != 1 || positions1[0] != pos1 {
+		t.Errorf("Expected position %d for hash %x, got %v", pos1, hash1, positions1)
+	}
+	positions2, err := loadedIdx.Lookup(hash2)
+	if err != nil || len(positions2) != 1 || positions2[0] != pos2 {
+		t.Errorf("Expected postion %d for hash %x, got %v", pos2, hash2, positions2)
+	}
+}
