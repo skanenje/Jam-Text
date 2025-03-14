@@ -39,10 +39,10 @@ func DefaultChunkOptions() ChunkOptions {
 }
 
 // ReadChunk reads content at a specific position with context
-func ReadChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (string, error) {
+func ReadChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 	defer file.Close()
 
@@ -58,12 +58,12 @@ func ReadChunk(filename string, position int64, chunkSize int, contextBefore, co
 
 	// Seek to the start position
 	if _, err := file.Seek(startPos, 0); err != nil {
-		return "", err
+		return "", "", "", err
 	}
 
 	bytesRead, err := file.Read(buffer)
 	if err != nil && err != io.EOF {
-		return "", err
+		return "", "", "", err
 	}
 
 	// Adjust for the actual amount read
@@ -83,5 +83,10 @@ func ReadChunk(filename string, position int64, chunkSize int, contextBefore, co
 		}
 	}
 
-	return string(actualContent), nil
+	// Split the content into lines
+	contextBeforeStr = string(actualContent[:contextBefore])
+	chunkStr := string(actualContent[contextBefore : contextBefore+chunkSize])
+	contextAfterStr = string(actualContent[contextBefore+chunkSize:]) 
+
+	return chunkStr, contextBeforeStr, contextAfterStr, nil
 }

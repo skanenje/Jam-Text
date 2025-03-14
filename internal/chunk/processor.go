@@ -124,9 +124,9 @@ func ProcessFile(filename string, opts ChunkOptions, hyperplanes [][]float64, in
 					count, result.Pos, result.Hash)
 			}
 
-			// Log every 100th hash for testing purposes
-			if count%100 == 0 {
-				opts.Logger.Printf("Sample hash: %016x at position %d",
+			// Log every hash
+			if true { // Changed from if count%100 == 0
+				opts.Logger.Printf("Hash: %016x at position %d",
 					result.Hash, result.Pos)
 			}
 
