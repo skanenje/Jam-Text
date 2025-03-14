@@ -41,6 +41,13 @@ HASH=$(./jamtext -c hash -i testPlagurism.txt)
 ./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
 ```
 
+## Similarity Search
+```bash
+# compare two text documents to find if they are similar
+./jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
+
+```
+
 ## Building
 
 Requirements:
