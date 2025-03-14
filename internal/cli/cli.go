@@ -3,8 +3,11 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"jamtext/internal/chunk"
@@ -48,8 +51,10 @@ func Run(args []string) error {
 		}
 		defer f.Close()
 		logger = log.New(f, "", log.LstdFlags)
-	} else {
+	} else if *verbose {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
+	} else {
+		logger = log.New(io.Discard, "", 0) // Discard logs unless verbose or log file specified
 	}
 
 	switch *cmd {
@@ -137,6 +142,64 @@ func Run(args []string) error {
 		defer idx.Close()
 		return nil
 
+	case "dedup":
+		fmt.Println("Here")
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			fmt.Printf("Error loading index: %v\n", err)
+			return err
+		}
+
+		start := time.Now()
+		deduped := make(map[simhash.SimHash][]int64)
+		totalDupes := 0
+
+		// TODO: Add a function to deduplicate the index
+		for _, shard := range idx.Shards {
+			fmt.Printf("Deduplicating shard %d\n", shard.ShardID)
+			if shard == nil {
+				continue
+			}
+
+			for hash, positions := range shard.SimHashToPos {
+				// Keep only unique positions
+				seen := make(map[int64]bool)
+				unique := []int64{}
+
+				for _, pos := range positions {
+					if !seen[pos] {
+						seen[pos] = true
+						unique = append(unique, int64(pos))
+					}
+				}
+
+				if len(unique) < len(positions) {
+					totalDupes += len(positions) - len(unique)
+				}
+
+				deduped[hash] = unique
+			}
+		}
+
+		// Update index with deduplicated data
+		idx.Shards = []*index.IndexShard{{
+			SimHashToPos: deduped,
+			ShardID:      0,
+		}}
+
+		if err := index.Save(idx, *output); err != nil {
+			return err
+		}
+
+		fmt.Printf("Removed %d duplicate positions in %v\n", totalDupes, time.Since(start))
+
+		defer idx.Close()
+		return nil
+
 	case "stats":
 		if *input == "" {
 			return fmt.Errorf("input file must be specified")
@@ -218,6 +281,10 @@ func Run(args []string) error {
 		// Generate hyperplanes
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
+		if *verbose {
+			logger.Printf("Generated %d hyperplanes\n", len(hyperplanes))
+		}
+
 		// Read the file content
 		content, err := os.ReadFile(*input)
 		if err != nil {
@@ -230,7 +297,7 @@ func Run(args []string) error {
 		return nil
 
 	case "compare":
-		if *input == "" || *secondInput == ""{
+		if *input == "" || *secondInput == "" {
 			return fmt.Errorf("first input file must be specified")
 		}
 
@@ -253,7 +320,7 @@ func Run(args []string) error {
 
 		detector := simhash.NewDocumentSimilarity()
 		//in this case the value ignored is the similarity number which is basically the level of similarity.
-		_, details := detector.CompareDocuments(string(content1), string(content2)) 
+		_, details := detector.CompareDocuments(string(content1), string(content2))
 
 		fmt.Println(details)
 
@@ -299,7 +366,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
-	
+
 }
 
 // Add this function to help verify matches
@@ -354,4 +421,129 @@ func findLongestCommonSubstring(s1, s2 string) string {
 
 	// Extract the longest common substring
 	return s1[startPos:endPos]
+}
+
+// Add this struct to store word occurrences
+type WordOccurrence struct {
+	Word      string
+	Count     int
+	Locations []struct {
+		LineNum int
+		Context string
+	}
+}
+
+func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, logger *log.Logger, verbose bool) (int, error) {
+	content, err := os.ReadFile(inputPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read input file: %w", err)
+	}
+
+	wordlist, err := os.ReadFile(wordlistPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read wordlist: %w", err)
+	}
+
+	// Store offensive words in a map for quick lookup
+	words := make(map[string]bool)
+	for _, word := range strings.Fields(string(wordlist)) {
+		words[strings.ToLower(strings.TrimSpace(word))] = true
+	}
+
+	matches := 0
+	lines := strings.Split(string(content), "\n")
+
+	// Track word statistics
+	wordStats := make(map[string]int)
+
+	fmt.Printf("\n📑 Content Moderation Report\n")
+	fmt.Printf("========================\n\n")
+
+	// Iterate over each line and check for offensive words
+	for i, line := range lines {
+		lineNum := i + 1
+		foundWords := make(map[string]bool) // Use map to avoid duplicates per line
+
+		for word := range words {
+			var found bool
+
+			if modLevel == "strict" {
+				// Strict mode: Match only whole words
+				for _, token := range strings.Fields(line) {
+					cleanedToken := strings.ToLower(strings.Trim(token, ".,!?\"'"))
+					if cleanedToken == word {
+						foundWords[word] = true
+						wordStats[word]++
+						found = true
+					}
+				}
+			} else {
+				// Lenient mode: Match if the word appears anywhere in the line
+				if strings.Contains(strings.ToLower(line), word) {
+					foundWords[word] = true
+					wordStats[word]++
+					found = true
+				}
+			}
+
+			if found {
+				matches++
+			}
+		}
+
+		// If any offensive words were found, print them
+		if len(foundWords) > 0 {
+			fmt.Printf("🚨 Line %d:\n", lineNum)
+			fmt.Printf("   %s\n", line)
+
+			// Convert map keys to slice for sorting
+			var words []string
+			for w := range foundWords {
+				words = append(words, w)
+			}
+			sort.Strings(words)
+
+			fmt.Printf("❌ Found: %s\n", strings.Join(words, ", "))
+			if verbose {
+				fmt.Printf("   Context: %s\n", truncateContext(line, contextSize))
+			}
+			fmt.Println()
+		}
+	}
+
+	// Print summary statistics
+	if matches > 0 {
+		fmt.Printf("\n📊 Summary Statistics\n")
+		fmt.Printf("==================\n")
+		fmt.Printf("Total matches found: %d\n\n", matches)
+
+		// Sort words by frequency
+		type wordCount struct {
+			word  string
+			count int
+		}
+		var sorted []wordCount
+		for word, count := range wordStats {
+			sorted = append(sorted, wordCount{word, count})
+		}
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].count > sorted[j].count
+		})
+
+		fmt.Printf("Word Frequency:\n")
+		for _, wc := range sorted {
+			fmt.Printf("- '%s': %d occurrence(s)\n", wc.word, wc.count)
+		}
+	} else {
+		fmt.Printf("\n✅ No offensive content found\n")
+	}
+
+	return matches, nil
+}
+
+func truncateContext(text string, size int) string {
+	if len(text) <= size {
+		return text
+	}
+	return text[:size] + "..."
 }
