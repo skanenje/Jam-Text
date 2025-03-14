@@ -29,7 +29,7 @@ func Run(args []string) error {
 	hashStr := fs.String("h", "", "SimHash value to lookup")
 	secondInput := fs.String("i2", "", "Second input file for comparison")
 
-	// Advanced commands to be added
+	// Advanced commands
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
 	splitBoundary := fs.Bool("boundary", true, "Split on text boundaries")
 	boundaryChars := fs.String("boundary-chars", ".!?\n", "Text boundaries to split on")
@@ -118,6 +118,7 @@ func Run(args []string) error {
 
 		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
 		for i, pos := range positions[:min(3, len(positions))] {
+			// TODO: Add a function to read chunk contents
 			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
 				return nil
@@ -263,6 +264,11 @@ func Run(args []string) error {
 
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
+			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
+				similarHash,
+				distance,
+				len(positions))
+
 			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
 
 			for _, pos := range positions {
@@ -319,7 +325,7 @@ func Run(args []string) error {
 		}
 
 		detector := simhash.NewDocumentSimilarity()
-		//in this case the value ignored is the similarity number which is basically the level of similarity.
+		// in this case the value ignored is the similarity number which is basically the level of similarity.
 		_, details := detector.CompareDocuments(string(content1), string(content2))
 
 		fmt.Println(details)
@@ -348,9 +354,9 @@ func min(a, b int) int {
 }
 
 func printUsage(fs *flag.FlagSet) {
-	fmt.Println("TextIndex - A text indexing and similarity search tool")
+	fmt.Println("JamText - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -cmd <command> [options]")
+	fmt.Println("  ./jamtext -c <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index  - Create index from text file")
 	fmt.Println("  lookup - Exact lookup by SimHash")
@@ -366,7 +372,6 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
-
 }
 
 // Add this function to help verify matches

@@ -22,7 +22,7 @@ func main() {
 The CLI supports various flags for configuration:
 
 ##### Basic Flags
-- `-cmd`: Command to execute (required)
+- `-c`: Command to execute (required)
 - `-i`: Input file path
 - `-o`: Output file path
 - `-v`: Enable verbose output
@@ -47,7 +47,7 @@ Processes and indexes text files for similarity searching.
 
 #### Usage
 ```bash
-jamtext -cmd index -i <input_file> -o <output_file> [options]
+jamtext -c index -i <input_file> -o <output_file> [options]
 ```
 
 #### Operation Flow
@@ -67,7 +67,7 @@ jamtext -cmd index -i <input_file> -o <output_file> [options]
 
 #### Example
 ```bash
-jamtext -cmd index -i book.txt -o book.idx -s 4096 -overlap 256
+jamtext -c index -i book.txt -o book.idx -s 4096 -overlap 256
 ```
 
 ### 2. Lookup Command
@@ -75,7 +75,7 @@ Searches indexed files for similar text chunks.
 
 #### Usage
 ```bash
-jamtext -cmd lookup -i <index_file> -h <hash> [options]
+jamtext -c lookup -i <index_file> -h <hash> [options]
 ```
 
 #### Operation Flow
@@ -94,7 +94,7 @@ jamtext -cmd lookup -i <index_file> -h <hash> [options]
 
 #### Example
 ```bash
-jamtext -cmd lookup -i book.idx -h f7a3d921 -context-before 100 -context-after 100
+jamtext -c lookup -i book.idx -h f7a3d921 -context-before 100 -context-after 100
 ```
 
 ## Integration with Other Packages
@@ -175,16 +175,16 @@ The CLI package implements comprehensive error handling:
 ### Basic Indexing
 ```bash
 # Index with default settings
-jamtext -cmd index -i document.txt -o document.idx
+jamtext -c index -i document.txt -o document.idx
 
 # Index with custom chunk size
-jamtext -cmd index -i document.txt -o document.idx -s 8192
+jamtext -c index -i document.txt -o document.idx -s 8192
 ```
 
 ### Advanced Indexing
 ```bash
 # Index with custom settings
-jamtext -cmd index -i document.txt -o document.idx \
+jamtext -c index -i document.txt -o document.idx \
     -s 4096 \
     -overlap 512 \
     -boundary=true \
@@ -197,10 +197,10 @@ jamtext -cmd index -i document.txt -o document.idx \
 ### Lookup Operations
 ```bash
 # Basic lookup
-jamtext -cmd lookup -i document.idx -h <hash>
+jamtext -c lookup -i document.idx -h <hash>
 
 # Lookup with extended context
-jamtext -cmd lookup -i document.idx -h <hash> \
+jamtext -c lookup -i document.idx -h <hash> \
     -context-before 200 \
     -context-after 200
 ```
