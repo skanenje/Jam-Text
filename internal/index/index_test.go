@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name:     "with custom index directory",
-			indexDir: filepath.Join(tmpDir, "custome"),
+			indexDir: filepath.Join(tmpDir, "custom"),
 		},
 	}
 
@@ -51,6 +51,61 @@ func TestNew(t *testing.T) {
 
 			if idx.Shards[0] == nil || len(idx.Shards[0].SimHashToPos) != 0 {
 				t.Errorf("Expected empty initial shard")
+			}
+		})
+	}
+}
+
+func TestAdd(t *testing.T) {
+	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), "")
+
+	tests := []struct {
+		name    string
+		hash    simhash.SimHash
+		pos     int64
+		wantErr bool
+	}{
+		{
+			name:    "add first hash",
+			hash:    0x1234,
+			pos:     100,
+			wantErr: false,
+		},
+		{
+			name:    "add duplicate hash",
+			hash:    0x1234,
+			pos:     200,
+			wantErr: false,
+		},
+		{
+			name:    "add different hash",
+			hash:    0x5678,
+			pos:     300,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := idx.Add(tt.hash, tt.pos)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Add() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			positions, err := idx.Lookup(tt.hash)
+			if err != nil {
+				t.Fatalf("Lookup failed: %v", err)
+			}
+
+			found := false
+			for _, pos := range positions {
+				if pos == tt.pos {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Postion %d not found for hash %x", tt.pos, tt.hash)
 			}
 		})
 	}
