@@ -123,6 +123,14 @@ const (
 - Thread-safe random number generation
 - Optimized vector operations
 
+### Moderation Features
+- Configurable word list support
+- Strict and lenient matching modes
+- Context-aware reporting
+- Word frequency analysis
+- Thread-safe processing
+- Detailed violation reports
+
 ## Documentation
 
 Comprehensive documentation is available in the [docs](docs/) directory:
