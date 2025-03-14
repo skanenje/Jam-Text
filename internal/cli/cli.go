@@ -319,7 +319,7 @@ func Run(args []string) error {
 		}
 
 		detector := simhash.NewDocumentSimilarity()
-		//in this case the value ignored is the similarity number which is basically the level of similarity.
+		// in this case the value ignored is the similarity number which is basically the level of similarity.
 		_, details := detector.CompareDocuments(string(content1), string(content2))
 
 		fmt.Println(details)
@@ -366,7 +366,6 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
-
 }
 
 // Add this function to help verify matches
