@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -179,11 +180,6 @@ func Run(args []string) error {
 
 		resultMap, exists := idx.FuzzyLookup(hash, *threshold)
 		if !exists {
-			return fmt.Errorf("No similar hashes found")
-		}
-
-		fmt.Printf("Fond %d similar hashes for SimHash %x\n", len(resultMap), hash)
-		count := 0
 			fmt.Printf("No exact matches found. Trying with increased threshold...\n")
 			// Try with a higher threshold
 			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
@@ -209,9 +205,9 @@ func Run(args []string) error {
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
-		                    similarHash,
-		                    distance,
-		                    len(positions))
+				similarHash,
+				distance,
+				len(positions))
 
 			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
 
@@ -247,7 +243,7 @@ func Run(args []string) error {
 		return nil
 
 	case "compare":
-		if *input == "" || *secondInput == ""{
+		if *input == "" || *secondInput == "" {
 			return fmt.Errorf("first input file must be specified")
 		}
 
@@ -269,8 +265,8 @@ func Run(args []string) error {
 		}
 
 		detector := simhash.NewDocumentSimilarity()
-		//in this case the value ignored is the similarity number which is basically the level of similarity.
-		_, details := detector.CompareDocuments(string(content1), string(content2)) 
+		// in this case the value ignored is the similarity number which is basically the level of similarity.
+		_, details := detector.CompareDocuments(string(content1), string(content2))
 
 		fmt.Println(details)
 
@@ -314,10 +310,8 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
 	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
-}
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
-	
 }
 
 // Add this function to help verify matches
