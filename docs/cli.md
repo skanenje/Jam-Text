@@ -107,7 +107,27 @@ jamtext -c hash -i <input_file>
    - Calculates SimHash
 
 2. **Output**
-   - Displays 64-bit hash value in hexadecimal
+   - Displays 64-bit hash value in hexadecimal format (%x)
+   - Returns error if hash parsing fails
+
+### 4. Fuzzy Command
+Performs fuzzy lookup using SimHash with configurable threshold.
+
+#### Usage
+```bash
+jamtext -c fuzzy -i <index_file> -h <hash> -threshold <value>
+```
+
+#### Operation Flow
+1. **Hash Parsing**
+   - Parses input hash from hexadecimal string
+   - Validates hash format
+2. **Lookup Process**
+   - Performs LSH-enhanced fuzzy lookup
+   - Applies similarity threshold
+3. **Output**
+   - Shows matching chunks with context
+   - Displays similarity metrics
 
 ## Integration with Other Packages
 
