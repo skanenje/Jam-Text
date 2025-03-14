@@ -301,12 +301,13 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  index  - Create index from text file")
-	fmt.Println("  lookup - Exact lookup by SimHash")
-	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
-	fmt.Println("  hash   - Calculate SimHash for a file")
-	fmt.Println("  stats  - Show index statistics")
-	fmt.Println("  compare - Compare two text files for similarity")
+	fmt.Println("  index     - Create index from text file")
+	fmt.Println("  lookup    - Exact lookup by SimHash")
+	fmt.Println("  fuzzy     - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash      - Calculate SimHash for a file")
+	fmt.Println("  stats     - Show index statistics")
+	fmt.Println("  compare   - Compare two text files for similarity")
+	fmt.Println("  moderate  - Check content against moderation wordlist")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
@@ -315,6 +316,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
+	fmt.Println("  textindex -c moderate -i content.txt -wordlist words.txt -level strict")
 }
 
 // Add this function to help verify matches
