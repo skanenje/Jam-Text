@@ -134,3 +134,89 @@ func TestSharding(t *testing.T) {
 		t.Errorf("Shard file not created: %s", shardPath)
 	}
 }
+
+func TestFuzzyLookup(t *testing.T) {
+	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), "")
+
+	// Add test hashes
+	testData := []struct {
+		hash simhash.SimHash
+		pos  int64
+	}{
+		{0xFF00, 100}, // Base hash
+		{0xFF01, 200}, // Distance 1 from 0xFF00
+		{0xFF10, 300}, // Distance 1 from 0xFF00
+		{0x00FF, 400}, // Different hash
+	}
+
+	for _, td := range testData {
+		if err := idx.Add(td.hash, td.pos); err != nil {
+			t.Fatalf("Failed to add hash: %v", err)
+		}
+	}
+
+	tests := []struct {
+		name          string
+		searchHash    simhash.SimHash
+		threshold     int
+		wantMatches   int
+		wantPositions []int64
+	}{
+		{
+			name:          "exact match with threshold 2",
+			searchHash:    0xFF00,
+			threshold:     2,
+			wantMatches:   3,
+			wantPositions: []int64{100, 200, 300},
+		},
+		{
+			name:          "no matches",
+			searchHash:    0x0000,
+			threshold:     1,
+			wantMatches:   0,
+			wantPositions: nil,
+		},
+		{
+			name:          "single match with threshold 0",
+			searchHash:    0xFF01,
+			threshold:     0,
+			wantMatches:   1,
+			wantPositions: []int64{200},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, exists := idx.FuzzyLookup(tt.searchHash, tt.threshold)
+
+			if !exists && tt.wantMatches > 0 {
+				t.Error("Expected matches but got none")
+				return
+			}
+
+			totalMatches := 0
+			foundPositions := make(map[int64]bool)
+			
+			// Count total matches and collect all positions
+			for _, positions := range results {
+				totalMatches++
+				for _, pos := range positions {
+					foundPositions[pos] = true
+				}
+			}
+
+			if totalMatches != tt.wantMatches {
+				t.Errorf("Expected %d matches, got %d", tt.wantMatches, totalMatches)
+			}
+
+			// Verify each expected position is found
+			if tt.wantPositions != nil {
+				for _, wantPos := range tt.wantPositions {
+					if !foundPositions[wantPos] {
+						t.Errorf("Expected position %d not found in results", wantPos)
+					}
+				}
+			}
+		})
+	}
+}
