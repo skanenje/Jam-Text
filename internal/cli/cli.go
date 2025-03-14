@@ -568,7 +568,7 @@ func truncateContext(text string, size int) string {
 
 func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
 	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-	
+
 	for simHash, positions := range matches {
 		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
 		for _, pos := range positions {
@@ -577,10 +577,15 @@ func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[sim
 				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
 				continue
 			}
-			
-			fmt.Printf("Match at position %d:\n", pos)
-			fmt.Printf("Chunk:  %s\n", chunk)
-			fmt.Println("---")
+
+			if len(chunk) == 0 {
+				fmt.Printf("Empty chunks starting at position %d\n", pos)
+				break
+			} else {
+				fmt.Printf("Match at position %d:\n", pos)
+				fmt.Printf("Chunk:  %s\n", chunk)
+				fmt.Println("---")
+			}
 		}
 	}
 }
