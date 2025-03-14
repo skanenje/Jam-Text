@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"jamtext/internal/chunk"
@@ -275,12 +277,12 @@ func Run(args []string) error {
 		if *wordlistPath == "" {
 			return fmt.Errorf("wordlist file must be specified")
 		}
-		
+
 		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, logger, *verbose)
 		if err != nil {
 			return err
 		}
-		
+
 		if matches > 0 {
 			return fmt.Errorf("found %d potentially inappropriate matches", matches)
 		}
@@ -428,10 +430,10 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 
 	// Track word statistics with severity
 	type occurrence struct {
-		count     int
-		severity  string
-		contexts  []string
-		lineNums  []int
+		count    int
+		severity string
+		contexts []string
+		lineNums []int
 	}
 	wordStats := make(map[string]*occurrence)
 
@@ -458,7 +460,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 						}
 						wordStats[word].count++
 						wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-						wordStats[word].contexts = append(wordStats[word].contexts, 
+						wordStats[word].contexts = append(wordStats[word].contexts,
 							truncateContext(line, contextSize))
 					}
 				}
@@ -472,7 +474,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 					}
 					wordStats[word].count++
 					wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-					wordStats[word].contexts = append(wordStats[word].contexts, 
+					wordStats[word].contexts = append(wordStats[word].contexts,
 						truncateContext(line, contextSize))
 				}
 			}
@@ -498,8 +500,8 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 			for _, sev := range []string{"high", "medium", "low"} {
 				if words, ok := severityGroups[sev]; ok {
 					sort.Strings(words)
-					fmt.Printf("❌ %s severity: %s\n", 
-						strings.Title(sev), 
+					fmt.Printf("❌ %s severity: %s\n",
+						strings.Title(sev),
 						strings.Join(words, ", "))
 				}
 			}
@@ -521,7 +523,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		for _, severity := range []string{"high", "medium", "low"} {
 			fmt.Printf("\n%s Severity Words:\n", strings.Title(severity))
 			fmt.Printf("------------------\n")
-			
+
 			// Collect words of current severity
 			var sevWords []struct {
 				word  string
@@ -532,7 +534,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 					sevWords = append(sevWords, struct {
 						word  string
 						stats *occurrence
-					} {word, stats})
+					}{word, stats})
 				}
 			}
 
@@ -546,7 +548,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 				fmt.Printf("'%s' (%d occurrences)\n", w.word, w.stats.count)
 				if verbose {
 					for i, context := range w.stats.contexts {
-						fmt.Printf("  Line %d: %s\n", 
+						fmt.Printf("  Line %d: %s\n",
 							w.stats.lineNums[i], context)
 					}
 				}
@@ -564,4 +566,29 @@ func truncateContext(text string, size int) string {
 		return text
 	}
 	return text[:size/2] + "..." + text[len(text)-size/2:]
+}
+
+func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
+	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
+	
+	for simHash, positions := range matches {
+		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
+		for _, pos := range positions {
+			chunk, before, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
+			if err != nil {
+				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
+				continue
+			}
+			
+			fmt.Printf("Match at position %d:\n", pos)
+			if len(before) > 0 {
+				fmt.Printf("Before: %s\n", before)
+			}
+			fmt.Printf("Chunk:  %s\n", chunk)
+			if len(after) > 0 {
+				fmt.Printf("After:  %s\n", after)
+			}
+			fmt.Println("---")
+		}
+	}
 }
