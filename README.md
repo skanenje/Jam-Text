@@ -1,29 +1,6 @@
 # Jam-Text
 
 A high-performance text indexer using SimHash fingerprints for text similarity search. Written in Go, it provides efficient indexing and searching of large text files through vector similarity with random hyperplanes.
-
-## Current Status
-
-✅ Implemented:
-- Parallel chunk processing architecture
-- SimHash core implementation with LSH support
-- Dual vectorization methods (frequency and n-gram based)
-- Worker pool for concurrent processing
-- Parallel hyperplane generation
-- Basic CLI framework
-- Basic project structure
-- Hamming distance similarity comparison
-- Thread-safe random number generation
-- Content moderation with configurable word lists
-
-🚧 In Progress:
-- Index command implementation
-- Lookup command implementation
-- Index storage serialization
-- Full CLI functionality
-- Additional vectorization methods
-- Performance optimization for large datasets
-
 ## Core Components
 
 ### SimHash Implementation
@@ -50,17 +27,18 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Dynamic worker scaling
 - Concurrent task processing
 
-## Usage
+## Use Cases
 
+## Plugerism Detection
 ```bash
-# Index a file (in development)
-jamtext -cmd index -i <input_file> -o <output_file>
+# index the desired corpus of data
+./jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
 
-# Lookup similar text (in development)
-jamtext -cmd lookup -i <input_file> -o <output_file>
+# hash the particular document you want
+HASH=$(./jamtext -c hash -i testPlagurism.txt)
 
-# Moderate content for offensive language
-jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
+# use the hash for lookup with fuzzy search
+./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
 ```
 
 ## Building
@@ -155,13 +133,6 @@ go doc jamtext/internal/index
 ```
 
 ## Development
-
-### Ignored Files
-- `*.txt`: Text files
-- `*.idx`: Index files
-- `*.shard`: Shard data
-- `*.dat`: Data files
-- `.vscode/`: IDE settings
 
 ## Contributing
 
