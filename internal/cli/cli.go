@@ -37,8 +37,6 @@ func Run(args []string) error {
 	maxChunkSize := fs.Int("max-size", 6144, "Maximum chunk size in bytes")
 	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
-	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
-	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
 	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
 
 	// Content moderation flags
@@ -126,7 +124,7 @@ func Run(args []string) error {
 			return fmt.Errorf("no matches found for hash %x", hash)
 		}
 
-		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize, *contextBefore, *contextAfter)
+		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize)
 
 		defer idx.Close()
 		return nil
@@ -187,7 +185,7 @@ func Run(args []string) error {
 			break
 		}
 
-		originalChunk, _, _, err := chunk.ReadChunk(idx.SourceFile, firstPositions[0], idx.ChunkSize, 0, 0)
+		originalChunk, err := chunk.ReadChunk(idx.SourceFile, firstPositions[0], idx.ChunkSize)
 		if err != nil {
 			return fmt.Errorf("failed to read original chunk: %w", err)
 		}
@@ -326,7 +324,7 @@ func printUsage(fs *flag.FlagSet) {
 
 // Add this function to help verify matches
 func showMatchContext(sourceFile string, position int64, chunkSize int, originalText string) {
-	content, _, _, err := chunk.ReadChunk(sourceFile, position, chunkSize, 0, 0)
+	content, err := chunk.ReadChunk(sourceFile, position, chunkSize)
 	if err != nil {
 		return
 	}
@@ -568,26 +566,20 @@ func truncateContext(text string, size int) string {
 	return text[:size/2] + "..." + text[len(text)-size/2:]
 }
 
-func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
+func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
 	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
 	
 	for simHash, positions := range matches {
 		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
 		for _, pos := range positions {
-			chunk, before, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
+			chunk, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
 			if err != nil {
 				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
 				continue
 			}
 			
 			fmt.Printf("Match at position %d:\n", pos)
-			if len(before) > 0 {
-				fmt.Printf("Before: %s\n", before)
-			}
 			fmt.Printf("Chunk:  %s\n", chunk)
-			if len(after) > 0 {
-				fmt.Printf("After:  %s\n", after)
-			}
 			fmt.Println("---")
 		}
 	}
