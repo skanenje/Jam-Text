@@ -3,12 +3,14 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+	"time"
+
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
-	"log"
-	"os"
-	"time"
 )
 
 func Run(args []string) error {
@@ -17,7 +19,7 @@ func Run(args []string) error {
 	// TODO: Add more flags
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
-	
+
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
@@ -25,7 +27,7 @@ func Run(args []string) error {
 	size := fs.Int("s", 4096, "Chunk size in bytes")
 	hashStr := fs.String("h", "", "SimHash value to lookup")
 
-	// Advanced commands to be added
+	// Advanced commands
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
 	splitBoundary := fs.Bool("boundary", true, "Split on text boundaries")
 	boundaryChars := fs.String("boundary-chars", ".!?\n", "Text boundaries to split on")
@@ -35,14 +37,13 @@ func Run(args []string) error {
 	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before chunk")
 	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after chunk")
 	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
-	
 
 	fs.Parse(args[1:])
 
 	// Setup logger
 	var logger *log.Logger
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 		if err != nil {
 			return fmt.Errorf("error opening log file: %v", err)
 		}
@@ -86,14 +87,14 @@ func Run(args []string) error {
 
 		// TODO: Add a function to get stats for output file
 		stats := idx.Stats()
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n", 
-		                    stats["unique_hashes"], 
-		                    stats["total_positions"], 
-		                    time.Since(start))
+		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
+			stats["unique_hashes"],
+			stats["total_positions"],
+			time.Since(start))
 		fmt.Printf("Created %d shards\n", stats["shards"])
 
 		return nil
-		
+
 	case "lookup":
 		// TODO: Add a function to lookup chunks
 		if *input == "" || *hashStr == "" {
@@ -115,28 +116,44 @@ func Run(args []string) error {
 			return fmt.Errorf("SimHash not found")
 		}
 
-		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
-		for i, pos := range positions[:min(3, len(positions))] {
-			// TODO: Add a function to read chunk contents
+		fmt.Printf("\n=== Found %d matches for SimHash %x ===\n\n", len(positions), hash)
+
+		maxResults := 5 // Show more results by default
+		if len(positions) > maxResults {
+			fmt.Printf("Showing top %d of %d matches:\n\n", maxResults, len(positions))
+		}
+
+		for i, pos := range positions[:min(maxResults, len(positions))] {
 			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
-				return nil
+				return fmt.Errorf("failed to read chunk at position %d: %w", pos, err)
 			}
 
-			preview := content
-			if len(content) > 100 {
-				preview = content[:100] + "..."
+			// Format the preview with word wrapping
+			preview := formatPreview(content, 80) // 80 chars width
+
+			// Print result with clear separation and formatting
+			fmt.Printf("Match #%d:\n", i+1)
+			fmt.Printf("Position: %d\n", pos)
+			fmt.Printf("─────────────────────────────\n")
+
+			if contextBeforeStr != "" {
+				fmt.Printf("Context before:\n%s\n", formatPreview(contextBeforeStr, 80))
+				fmt.Printf("─────────────────────────────\n")
 			}
 
-			if contextBeforeStr == "" && contextAfterStr == "" {
-				fmt.Printf("%d. Position: %d\n    %s\n", i+1, pos, preview)
-			} else if contextBeforeStr == "" && contextAfterStr != "" {
-				fmt.Printf("%d. Position: %d\n\n    %s\n\n Context after: %s\n", i+1, pos, preview, contextAfterStr)
-			} else if contextBeforeStr != "" && contextAfterStr == "" {
-				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
-			} else {
-			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
+			fmt.Printf("Matched text:\n%s\n", preview)
+
+			if contextAfterStr != "" {
+				fmt.Printf("─────────────────────────────\n")
+				fmt.Printf("Context after:\n%s\n", formatPreview(contextAfterStr, 80))
 			}
+
+			fmt.Printf("═════════════════════════════\n\n")
+		}
+
+		if len(positions) > maxResults {
+			fmt.Printf("... and %d more matches. Use -max-results flag to show more.\n", len(positions)-maxResults)
 		}
 
 		defer idx.Close()
@@ -185,14 +202,14 @@ func Run(args []string) error {
 			return fmt.Errorf("No similar hashes found")
 		}
 
-		fmt.Printf("Fond %d similar hashes for SimHash %x\n", len(resultMap), hash)
+		fmt.Printf("Found %d similar hashes for SimHash %x\n", len(resultMap), hash)
 		count := 0
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
-		                    similarHash,
-		                    distance,
-		                    len(positions))
+				similarHash,
+				distance,
+				len(positions))
 
 			// Show sample positions
 			for i, pos := range positions[:min(2, len(positions))] {
@@ -235,9 +252,9 @@ func min(a, b int) int {
 }
 
 func printUsage(fs *flag.FlagSet) {
-	fmt.Println("TextIndex - A text indexing and similarity search tool")
+	fmt.Println("JamText - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -cmd <command> [options]")
+	fmt.Println("  ./jamtext -c <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index  - Create index from text file")
 	fmt.Println("  lookup - Exact lookup by SimHash")
@@ -246,7 +263,23 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  textindex -cmd index -i book.txt -o book.idx -s 4096")
-	fmt.Println("  textindex -cmd lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -cmd fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
+	fmt.Println(" ./jamtext -c index -i book.txt -o book.idx -s 4096")
+	fmt.Println("  ./text -c lookup -i book.idx -h a1b2c3d4e5f6")
+	fmt.Println("  ./jamtext -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
+}
+
+func formatPreview(text string, width int) string {
+	if len(text) == 0 {
+		return ""
+	}
+
+	// Trim excessive whitespace
+	text = strings.TrimSpace(text)
+
+	// If text is too long, truncate with ellipsis
+	if len(text) > width {
+		return text[:width-3] + "..."
+	}
+
+	return text
 }
