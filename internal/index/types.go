@@ -9,6 +9,7 @@ import (
 // IndexShard represents a portion of the index
 type IndexShard struct {
 	SimHashToPos map[simhash.SimHash][]int64
+	LSHBuckets   map[string]*LSHBucket // Added LSH support
 	ShardID      int
 	LastAccess   time.Time
 }

@@ -44,6 +44,10 @@ func Run(args []string) error {
 	modLevel := fs.String("level", "strict", "Moderation level (strict|lenient)")
 	contextSize := fs.Int("context", 50, "Context size for matches")
 
+	// Add LSH-specific flags
+	lshBands := fs.Int("lsh-bands", 8, "Number of LSH bands")
+	bandSize := fs.Int("band-size", 8, "Size of each LSH band")
+
 	fs.Parse(args[1:])
 
 	// Setup logger
@@ -67,7 +71,14 @@ func Run(args []string) error {
 			return fmt.Errorf("input and output file paths must be specified")
 		}
 
+		// Generate hyperplanes first
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
+
+		// Create index with LSH configuration
+		idx := index.New(*input, *size, hyperplanes, *indexDir)
+		
+		// Configure LSH table with specified parameters
+		idx.LSHTable = simhash.NewPermutationTable(*lshBands * *bandSize, *lshBands)
 
 		opts := chunk.ChunkOptions{
 			ChunkSize:        *size,
@@ -82,6 +93,7 @@ func Run(args []string) error {
 
 		start := time.Now()
 
+		// Process the file
 		idx, err := chunk.ProcessFile(*input, opts, hyperplanes, *indexDir)
 		if err != nil {
 			return err
@@ -166,47 +178,21 @@ func Run(args []string) error {
 			return fmt.Errorf("invalid hash: %w", err)
 		}
 
-		resultMap, exists := idx.FuzzyLookup(hash, *threshold)
-		if !exists {
-			fmt.Printf("No exact matches found. Trying with increased threshold...\n")
-			// Try with a higher threshold
-			resultMap, exists = idx.FuzzyLookup(hash, *threshold+2)
-			if !exists {
-				return fmt.Errorf("no similar hashes found within threshold %d", *threshold+2)
-			}
+		// Use LSH-enhanced fuzzy lookup
+		matches, found := idx.FuzzyLookup(hash, *threshold)
+		if !found {
+			fmt.Println("No similar content found")
+			return nil
 		}
 
-		fmt.Printf("Found %d similar hashes for SimHash %x\n", len(resultMap), hash)
-
-		// Get first hash and its positions from the result map
-		var firstPositions []int64
-		for _, p := range resultMap {
-			firstPositions = p
-			break
-		}
-
-		originalChunk, err := chunk.ReadChunk(idx.SourceFile, firstPositions[0], idx.ChunkSize)
-		if err != nil {
-			return fmt.Errorf("failed to read original chunk: %w", err)
-		}
-
-		fmt.Printf("Searching for matches to text chunk:\n%s\n\n", originalChunk)
-
-		for similarHash, positions := range resultMap {
-			distance := hash.HammingDistance(similarHash)
-			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
-				similarHash,
-				distance,
-				len(positions))
-
-			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", similarHash, distance)
-
+		fmt.Printf("Found %d similar chunks:\n", len(matches))
+		for hash, positions := range matches {
+			fmt.Printf("\nSimHash: %x\n", hash)
 			for _, pos := range positions {
-				showMatchContext(idx.SourceFile, pos, idx.ChunkSize, originalChunk)
+				showMatchContext(*input, pos, idx.ChunkSize, "")
 			}
 		}
 
-		defer idx.Close()
 		return nil
 	case "hash":
 		if *input == "" {
@@ -301,12 +287,13 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  index  - Create index from text file")
-	fmt.Println("  lookup - Exact lookup by SimHash")
-	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
-	fmt.Println("  hash   - Calculate SimHash for a file")
-	fmt.Println("  stats  - Show index statistics")
-	fmt.Println("  compare - Compare two text files for similarity")
+	fmt.Println("  index     - Create index from text file")
+	fmt.Println("  lookup    - Exact lookup by SimHash")
+	fmt.Println("  fuzzy     - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash      - Calculate SimHash for a file")
+	fmt.Println("  stats     - Show index statistics")
+	fmt.Println("  compare   - Compare two text files for similarity")
+	fmt.Println("  moderate  - Check content against moderation wordlist")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")

@@ -1,19 +1,22 @@
-# Documentation
+# Jam-Text Documentation
 
-## Package Documentation
-- [SimHash](simhash.md) - Text fingerprinting implementation
-- [Chunk](chunk.md) - Text chunking system
-- [Index](index.md) - Index management and storage
-- [CLI](cli.md) - Command-line interface
+## Core Documentation
+- [CLI Reference](cli.md) - Command-line interface documentation
+  - Commands: index, lookup, fuzzy, hash, compare, moderate
+  - Usage examples and configuration options
+  - Advanced parameters for chunk size, overlap, and thresholds
 
-## Architecture
-- [Design](architecture/design.md)
-- [Storage](architecture/storage.md)
+## Technical Documentation
+- [SimHash Implementation](simhash.md) - Text fingerprinting and similarity detection
+  - 64-bit fingerprint representation
+  - Frequency-based and n-gram vectorization
+  - LSH support for fast similarity search
+  - Thread-safe operations
+- [Chunking System](chunking.md) - Text segmentation and processing
+  - Text segmentation with configurable chunk sizes
+  - Context-aware processing with overlap support
+  - Multi-format support (TXT, PDF, DOCX)
+  - Parallel processing with worker pools
 
-## Guides
-- [Getting Started](guides/getting-started.md)
-- [Configuration](guides/configuration.md)
-
-## API Reference
-- [API Documentation](api/README.md)
-- [Examples](api/examples.md)
+## Contributing
+- [Contributing Guide](../CONTRIBUTING.md) - Guidelines for contributors
