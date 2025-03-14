@@ -13,22 +13,11 @@ import (
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
-	"log"
-	"os"
-	"time"
-	"jamtext/internal/chunk"
-	"jamtext/internal/index"
-	"jamtext/internal/simhash"
 )
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("textindex", flag.ExitOnError)
 
-	// TODO: Add more flags
-	verbose := fs.Bool("v", false, "Enable Verbose output")
-	logFile := fs.String("log", "", "Log file path(default: stderr)")
-
-	// TODO: Add more flags
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
 
@@ -37,10 +26,8 @@ func Run(args []string) error {
 	input := fs.String("i", "", "Input file path")
 	output := fs.String("o", "", "Output file path")
 	size := fs.Int("s", 4096, "Chunk size in bytes")
-	size := fs.Int("s", 4096, "Chunk size in bytes")
-	hashStr := fs.String("h", "", "SimHash algorithm to use")
-	contextBefore := fs.Int("context-before", 100, "Number of bytes to include before hash")
-	contextAfter := fs.Int("context-after", 100, "Number of bytes to include after hash")
+	hashStr := fs.String("h", "", "SimHash value to lookup")
+	secondInput := fs.String("i2", "", "Second input file for comparison")
 
 	// Advanced commands to be added
 	overlapSize := fs.Int("overlap", 256, "Overlap size in bytes")
@@ -58,42 +45,16 @@ func Run(args []string) error {
 	// Setup logger
 	var logger *log.Logger
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 		if err != nil {
 			return fmt.Errorf("error opening log file: %v", err)
 		}
 		defer f.Close()
 		logger = log.New(f, "", log.LstdFlags)
-	} else *verbose {
+	} else if *verbose {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
 	} else {
 		logger = log.New(io.Discard, "", 0) // Discard logs unless verbose or log file specified
-	}
-
-	// Setup logger
-	var logger *log.Logger
-	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-		if err != nil {
-			return fmt.Errorf("error opening log file: %v", err)
-		}
-		defer f.Close()
-		logger = log.New(f, "", log.LstdFlags)
-	} else {
-		logger = log.New(os.Stderr, "", log.LstdFlags)
-	}
-
-	// Setup logger
-	var logger *log.Logger
-	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-		if err != nil {
-			return fmt.Errorf("error opening log file: %v", err)
-		}
-		defer f.Close()
-		logger = log.New(f, "", log.LstdFlags)
-	} else {
-		logger = log.New(os.Stderr, "", log.LstdFlags)
 	}
 
 	switch *cmd {
@@ -104,75 +65,6 @@ func Run(args []string) error {
 
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
-		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
-
-		// TODO: Setup chunk options
-		opts := chunk.ChunkOptions{
-			ChunkSize:        *size,
-			OverlapSize:      *overlapSize,
-			SplitOnBoundary:  *splitBoundary,
-			BoundaryChars:    *boundaryChars,
-			MaxChunkSize:     *maxChunkSize,
-			PreserveNewlines: *preserveNewlines,
-			Logger:           logger,
-			Verbose:          *verbose,
-		}
-
-		start := time.Now()
-
-		// TODO: Add a function to index a file
-		idx, err := chunk.ProcessFile(*input, opts, hyperplanes, *indexDir)
-		if err != nil {
-			return err
-		}
-
-		if err := index.Save(idx, *output); err != nil {
-			return err
-		}
-
-		// TODO: Add a function to get stats for output file
-		stats := idx.Stats()
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n", 
-		                    stats["unique_hashes"], 
-		                    stats["total_positions"], 
-		                    time.Since(start))
-		fmt.Printf("Created %d shards\n", stats["shards"])
-
-		return nil
-		
-		opts := chunk.ChunkOptions{
-			ChunkSize:        *size,
-			OverlapSize:      *overlapSize,
-			SplitOnBoundary:  *splitBoundary,
-			BoundaryChars:    *boundaryChars,
-			MaxChunkSize:     *maxChunkSize,
-			PreserveNewlines: *preserveNewlines,
-			Logger:           logger,
-			Verbose:          *verbose,
-		}
-
-		start := time.Now()
-
-		// TODO: Add a function to index a file
-		idx, err := chunk.ProcessFile(*input, opts, hyperplanes, *indexDir)
-		if err != nil {
-			return err
-		}
-
-		if err := index.Save(idx, *output); err != nil {
-			return err
-		}
-
-		// TODO: Add a function to get stats for output file
-		stats := idx.Stats()
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n", 
-		                    stats["unique_hashes"], 
-		                    stats["total_positions"], 
-		                    time.Since(start))
-		fmt.Printf("Created %d shards\n", stats["shards"])
-
-		return nil
-		
 		opts := chunk.ChunkOptions{
 			ChunkSize:        *size,
 			OverlapSize:      *overlapSize,
@@ -206,7 +98,7 @@ func Run(args []string) error {
 
 	case "lookup":
 		if *input == "" || *hashStr == "" {
-			return fmt.Errorf("index file and hash must be specified")
+			return fmt.Errorf("input and hash must be specified")
 		}
 
 		var hash simhash.SimHash
@@ -219,21 +111,21 @@ func Run(args []string) error {
 			return err
 		}
 
-		positions, exists := idx.Lookup(hash)
-		if !exists {
-			return fmt.Errorf("SimHash not found in index")
+		positions, err := idx.Lookup(hash)
+		if err != nil {
+			return fmt.Errorf("SimHash not found")
 		}
 
-		fmt.Printf("Found %d matches: \n", len(positions))
+		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
 		for i, pos := range positions[:min(3, len(positions))] {
 			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
-				return err
+				return nil
 			}
 
 			preview := content
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
+			if len(content) > 100 {
+				preview = content[:100] + "..."
 			}
 
 			if contextBeforeStr == "" && contextAfterStr == "" {
@@ -250,20 +142,61 @@ func Run(args []string) error {
 		defer idx.Close()
 		return nil
 
-	// case "stats":
-	// 	if *input == "" {
-	// 		return fmt.Errorf("index file must be specified")
-	// 	}
+	case "dedup":
+		fmt.Println("Here")
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
 
-	// 	idx, err := index.Load(*input)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+		idx, err := index.Load(*input)
+		if err != nil {
+			fmt.Printf("Error loading index: %v\n", err)
+			return err
+		}
 
-	// 	stats := idx.Stats()
+		start := time.Now()
+		deduped := make(map[simhash.SimHash][]int64)
+		totalDupes := 0
 
-<<<<<<< HEAD
-=======
+		// TODO: Add a function to deduplicate the index
+		for _, shard := range idx.Shards {
+			fmt.Printf("Deduplicating shard %d\n", shard.ShardID)
+			if shard == nil {
+				continue
+			}
+
+			for hash, positions := range shard.SimHashToPos {
+				// Keep only unique positions
+				seen := make(map[int64]bool)
+				unique := []int64{}
+
+				for _, pos := range positions {
+					if !seen[pos] {
+						seen[pos] = true
+						unique = append(unique, int64(pos))
+					}
+				}
+
+				if len(unique) < len(positions) {
+					totalDupes += len(positions) - len(unique)
+				}
+
+				deduped[hash] = unique
+			}
+		}
+
+		// Update index with deduplicated data
+		idx.Shards = []*index.IndexShard{{
+			SimHashToPos: deduped,
+			ShardID:      0,
+		}}
+
+		if err := index.Save(idx, *output); err != nil {
+			return err
+		}
+
+		fmt.Printf("Removed %d duplicate positions in %v\n", totalDupes, time.Since(start))
+
 		defer idx.Close()
 		return nil
 
@@ -272,15 +205,20 @@ func Run(args []string) error {
 			return fmt.Errorf("input file must be specified")
 		}
 
-	// 	idx, err := index.Load(*input)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
 
-	// 	stats := idx.Stats()
+		stats := idx.Stats()
+		fmt.Println("Index Statistics:")
+		fmt.Printf("Source file: %s\n", stats["source_file"])
+		fmt.Printf("Chunk size: %d bytes\n", stats["chunk_size"])
+		fmt.Printf("Created: %v\n", stats["created"])
+		fmt.Printf("Shards: %d\n", stats["shards"])
+		fmt.Printf("Unique hashes: %d\n", stats["unique_hashes"])
+		fmt.Printf("Total positions: %d\n", stats["total_positions"])
 
-<<<<<<< HEAD
-=======
 		defer idx.Close()
 		return nil
 
@@ -358,40 +296,42 @@ func Run(args []string) error {
 		fmt.Printf("%x\n", hash)
 		return nil
 
-	case "moderate":
-		if *input == "" {
-			return fmt.Errorf("input file must be specified")
+	case "compare":
+		if *input == "" || *secondInput == "" {
+			return fmt.Errorf("first input file must be specified")
 		}
 
-		opts := struct {
-			wordlist    string
-			modLevel    string
-			contextSize int
-		}{
-			wordlist:    *fs.String("wordlist", "offensive_words.txt", "Path to offensive words list"),
-			modLevel:    *fs.String("level", "strict", "Moderation level (strict/lenient)"),
-			contextSize: *fs.Int("context", 50, "Context size in characters"),
+		// secondInput := fs.String("i2", "", "Second input file path")
+		if *secondInput == "" {
+			return fmt.Errorf("second input file must be specified")
 		}
 
-		start := time.Now()
-
-		matches, err := processModeration(*input, opts.wordlist, opts.modLevel, opts.contextSize, logger, *verbose)
+		// Read first file
+		content1, err := os.ReadFile(*input)
 		if err != nil {
-			return fmt.Errorf("moderation failed: %w", err)
+			return fmt.Errorf("error reading %s: %w", *input, err)
 		}
 
-		if *verbose {
-			fmt.Printf("Completed moderation in %v\n", time.Since(start))
+		// Read second file
+		content2, err := os.ReadFile(*secondInput)
+		if err != nil {
+			return fmt.Errorf("error reading %s: %w", *secondInput, err)
 		}
 
-		if matches == 0 {
-			fmt.Printf("No offensive content found\n")
-		} else {
-			fmt.Printf("Found %d instances of offensive content\n", matches)
+		detector := simhash.NewDocumentSimilarity()
+		//in this case the value ignored is the similarity number which is basically the level of similarity.
+		_, details := detector.CompareDocuments(string(content1), string(content2))
+
+		fmt.Println(details)
+
+		if *output != "" {
+			report := fmt.Sprintf("Comparison Report\n\nFile 1: %s\nFile 2: %s\n\n%s",
+				*input, *secondInput, details)
+			if err := os.WriteFile(*output, []byte(report), 0o644); err != nil {
+				return fmt.Errorf("error writing report: %w", err)
+			}
+			fmt.Printf("Report saved to %s\n", *output)
 		}
-
-		return nil
-
 	default:
 		// TODO: Setup chunk options
 		printUsage(fs)
@@ -412,18 +352,21 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nUsage:")
 	fmt.Println("  textindex -cmd <command> [options]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  index    - Create index from text file")
-	fmt.Println("  lookup   - Exact lookup by SimHash")
-	fmt.Println("  fuzzy    - Fuzzy lookup by SimHash with threshold")
-	fmt.Println("  hash     - Calculate SimHash for a file")
-	fmt.Println("  stats    - Show index statistics")
-	fmt.Println("  moderate - Scan text for offensive content")
+	fmt.Println("  index  - Create index from text file")
+	fmt.Println("  lookup - Exact lookup by SimHash")
+	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash   - Calculate SimHash for a file")
+	fmt.Println("  stats  - Show index statistics")
+	fmt.Println("  compare - Compare two text files for similarity")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
 	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
 	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -c moderate -i document.txt -wordlist words.txt -level strict")
+	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
+	fmt.Println("  textindex -c hash -i text.txt")
+	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
+
 }
 
 // Add this function to help verify matches
