@@ -1,20 +1,35 @@
 package chunk
 
 import (
+	"fmt"
 	"io"
-	"log"
 	"os"
+	"strings"
+	"path/filepath"
+	"os/exec"
 )
 
-// Chunk represents a text chunk
+// Chunk represents a section of text with its metadata
 type Chunk struct {
-	StartOffset int64
 	Content     string
-	IsComplete  bool // Indicates if this is a complete text unit
+	StartOffset int64
+	Length      int
+	IsComplete  bool
 	Metadata    map[string]string
 }
 
-// ChunkOptions represents options for chunk processing
+// NewChunk creates a new chunk with initialized fields
+func NewChunk(content string, startOffset int64) Chunk {
+	return Chunk{
+		Content:     content,
+		StartOffset: startOffset,
+		Length:      len(content),
+		IsComplete:  true,
+		Metadata:    make(map[string]string),
+	}
+}
+
+// ChunkOptions defines configuration for chunk processing
 type ChunkOptions struct {
 	ChunkSize        int
 	OverlapSize      int
@@ -22,42 +37,40 @@ type ChunkOptions struct {
 	BoundaryChars    string
 	MaxChunkSize     int
 	PreserveNewlines bool
-	Logger           *log.Logger
+	Logger           Logger
 	Verbose          bool
 }
 
-// DefaultChunkOptions returns default chunking options
-func DefaultChunkOptions() ChunkOptions {
-	return ChunkOptions{
-		ChunkSize:        4096,
-		OverlapSize:      256,
-		SplitOnBoundary:  true,
-		BoundaryChars:    ".!?\n",
-		MaxChunkSize:     6144,
-		PreserveNewlines: true,
+// Logger interface for logging operations
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
+
+func ReadChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+	// Check file extension
+	ext := strings.ToLower(filepath.Ext(filename))
+	
+	switch ext {
+	case ".pdf":
+		return readPDFChunk(filename, position, chunkSize, contextBefore, contextAfter)
+	case ".docx":
+		return readDocxChunk(filename, position, chunkSize, contextBefore, contextAfter)
+	default:
+		return readTextChunk(filename, position, chunkSize, contextBefore, contextAfter)
 	}
 }
 
-// ReadChunk reads content at a specific position with context
-func ReadChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+func readTextChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return "", "", "", err
 	}
 	defer file.Close()
 
-	// Calculate start position with context
-	startPos := position - int64(contextBefore)
-	if startPos < 0 {
-		startPos = 0
-	}
-
-	// Calculate total size with context
-	totalSize := chunkSize + contextBefore + contextAfter
-	buffer := make([]byte, totalSize)
-
-	// Seek to the start position
-	if _, err := file.Seek(startPos, 0); err != nil {
+	// Read the content
+	buffer := make([]byte, contextBefore+chunkSize+contextAfter)
+	_, err = file.Seek(position-int64(contextBefore), 0)
+	if err != nil {
 		return "", "", "", err
 	}
 
@@ -66,27 +79,70 @@ func ReadChunk(filename string, position int64, chunkSize int, contextBefore, co
 		return "", "", "", err
 	}
 
-	// Adjust for the actual amount read
-	actualContent := buffer[:bytesRead]
-
-	// Ensure we have valid UTF-8
-	if !isValidUTF8(actualContent) {
-		// Try to find a valid UTF-8 boundary
-		validLen := 0
-		for i := 0; i < len(actualContent); i++ {
-			if isValidUTF8(actualContent[:i+1]) {
-				validLen = i + 1
-			}
-		}
-		if validLen > 0 {
-			actualContent = actualContent[:validLen]
-		}
+	// Calculate boundaries
+	contextBeforeStart := 0
+	chunkStart := contextBefore
+	chunkEnd := chunkStart + chunkSize
+	if chunkEnd > bytesRead {
+		chunkEnd = bytesRead
 	}
 
-	// Split the content into lines
-	contextBeforeStr = string(actualContent[:contextBefore])
-	chunkStr := string(actualContent[contextBefore : contextBefore+chunkSize])
-	contextAfterStr = string(actualContent[contextBefore+chunkSize:]) 
+	// Extract the chunks
+	if contextBefore > 0 {
+		contextBeforeStr = string(buffer[contextBeforeStart:chunkStart])
+	}
+	chunk = string(buffer[chunkStart:chunkEnd])
+	if chunkEnd < bytesRead {
+		contextAfterStr = string(buffer[chunkEnd:bytesRead])
+	}
 
-	return chunkStr, contextBeforeStr, contextAfterStr, nil
+	return chunk, contextBeforeStr, contextAfterStr, nil
+}
+
+func readPDFChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+	// Check if pdftotext is installed
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		return "", "", "", fmt.Errorf("pdftotext not found. Please install poppler-utils")
+	}
+
+	// Create a temporary file for the text output
+	tmpFile, err := os.CreateTemp("", "pdf_*.txt")
+	if err != nil {
+		return "", "", "", err
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Run pdftotext
+	cmd := exec.Command("pdftotext", filename, tmpFile.Name())
+	if err := cmd.Run(); err != nil {
+		return "", "", "", err
+	}
+
+	// Read the text file chunk
+	return readTextChunk(tmpFile.Name(), position, chunkSize, contextBefore, contextAfter)
+}
+
+func readDocxChunk(filename string, position int64, chunkSize int, contextBefore, contextAfter int) (chunk string, contextBeforeStr string, contextAfterStr string, err error) {
+	// Check if pandoc is installed
+	if _, err := exec.LookPath("pandoc"); err != nil {
+		return "", "", "", fmt.Errorf("pandoc not found. Please install pandoc")
+	}
+
+	// Create a temporary file for the text output
+	tmpFile, err := os.CreateTemp("", "docx_*.txt")
+	if err != nil {
+		return "", "", "", err
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Run pandoc to convert docx to text
+	cmd := exec.Command("pandoc", "-f", "docx", "-t", "plain", filename, "-o", tmpFile.Name())
+	if err := cmd.Run(); err != nil {
+		return "", "", "", fmt.Errorf("error converting docx: %w", err)
+	}
+
+	// Read the text file chunk
+	return readTextChunk(tmpFile.Name(), position, chunkSize, contextBefore, contextAfter)
 }

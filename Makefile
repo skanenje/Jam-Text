@@ -1,2 +1,2 @@
 build:
-	go build -o jamtext cmd/main.go
+	go build -o textindex cmd/main.go
