@@ -3,8 +3,11 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"jamtext/internal/chunk"
@@ -196,7 +199,7 @@ func Run(args []string) error {
 
 		defer idx.Close()
 		return nil
-		
+
 	case "stats":
 		if *input == "" {
 			return fmt.Errorf("input file must be specified")
@@ -294,7 +297,7 @@ func Run(args []string) error {
 		return nil
 
 	case "compare":
-		if *input == "" || *secondInput == ""{
+		if *input == "" || *secondInput == "" {
 			return fmt.Errorf("first input file must be specified")
 		}
 
@@ -317,7 +320,7 @@ func Run(args []string) error {
 
 		detector := simhash.NewDocumentSimilarity()
 		//in this case the value ignored is the similarity number which is basically the level of similarity.
-		_, details := detector.CompareDocuments(string(content1), string(content2)) 
+		_, details := detector.CompareDocuments(string(content1), string(content2))
 
 		fmt.Println(details)
 
@@ -363,7 +366,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 	fmt.Println("  textindex -c hash -i text.txt")
 	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
-	
+
 }
 
 // Add this function to help verify matches
