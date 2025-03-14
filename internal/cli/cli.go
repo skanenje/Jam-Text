@@ -18,7 +18,6 @@ func Run(args []string) error {
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
 
-
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
 	input := fs.String("i", "", "Input file path")
@@ -43,7 +42,6 @@ func Run(args []string) error {
 	// Setup logger
 	var logger *log.Logger
 	if *logFile != "" {
-		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 		f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 		if err != nil {
 			return fmt.Errorf("error opening log file: %v", err)
@@ -91,14 +89,9 @@ func Run(args []string) error {
 			stats["unique_hashes"],
 			stats["total_positions"],
 			time.Since(start))
-		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
-			stats["unique_hashes"],
-			stats["total_positions"],
-			time.Since(start))
 		fmt.Printf("Created %d shards\n", stats["shards"])
 
 		return nil
-
 
 	case "lookup":
 		if *input == "" || *hashStr == "" {
