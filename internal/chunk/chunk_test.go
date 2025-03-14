@@ -5,6 +5,15 @@ import (
 	"testing"
 )
 
+
+func DefaultChunkOptions() ChunkOptions {
+	return ChunkOptions{
+		ChunkSize:       4096,
+		OverlapSize:     256,
+		SplitOnBoundary: true,
+	}
+}
+
 func TestDefaultChunkOptions(t *testing.T) {
 	opts := DefaultChunkOptions()
 
@@ -112,4 +121,3 @@ func TestReadChunk(t *testing.T) {
 		})
 	}
 }
-
