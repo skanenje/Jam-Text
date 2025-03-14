@@ -6,8 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sort"
-	"strings"
 	"time"
 
 	"jamtext/internal/chunk"
@@ -101,102 +99,26 @@ func Run(args []string) error {
 			return fmt.Errorf("input and hash must be specified")
 		}
 
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
 		var hash simhash.SimHash
 		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
 			return fmt.Errorf("invalid hash: %w", err)
 		}
 
-		idx, err := index.Load(*input)
+		matches, err := idx.Lookup(hash)
 		if err != nil {
 			return err
 		}
 
-		positions, err := idx.Lookup(hash)
-		if err != nil {
-			return fmt.Errorf("SimHash not found")
+		if len(matches) == 0 {
+			return fmt.Errorf("no matches found for hash %x", hash)
 		}
 
-		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
-		for i, pos := range positions[:min(3, len(positions))] {
-			// TODO: Add a function to read chunk contents
-			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
-			if err != nil {
-				return nil
-			}
-
-			preview := content
-			if len(content) > 100 {
-				preview = content[:100] + "..."
-			}
-
-			if contextBeforeStr == "" && contextAfterStr == "" {
-				fmt.Printf("%d. Position: %d\n    %s\n", i+1, pos, preview)
-			} else if contextBeforeStr == "" && contextAfterStr != "" {
-				fmt.Printf("%d. Position: %d\n\n    %s\n\n Context after: %s\n", i+1, pos, preview, contextAfterStr)
-			} else if contextBeforeStr != "" && contextAfterStr == "" {
-				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
-			} else {
-				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
-			}
-		}
-
-		defer idx.Close()
-		return nil
-
-	case "dedup":
-		fmt.Println("Here")
-		if *input == "" {
-			return fmt.Errorf("input file must be specified")
-		}
-
-		idx, err := index.Load(*input)
-		if err != nil {
-			fmt.Printf("Error loading index: %v\n", err)
-			return err
-		}
-
-		start := time.Now()
-		deduped := make(map[simhash.SimHash][]int64)
-		totalDupes := 0
-
-		// TODO: Add a function to deduplicate the index
-		for _, shard := range idx.Shards {
-			fmt.Printf("Deduplicating shard %d\n", shard.ShardID)
-			if shard == nil {
-				continue
-			}
-
-			for hash, positions := range shard.SimHashToPos {
-				// Keep only unique positions
-				seen := make(map[int64]bool)
-				unique := []int64{}
-
-				for _, pos := range positions {
-					if !seen[pos] {
-						seen[pos] = true
-						unique = append(unique, int64(pos))
-					}
-				}
-
-				if len(unique) < len(positions) {
-					totalDupes += len(positions) - len(unique)
-				}
-
-				deduped[hash] = unique
-			}
-		}
-
-		// Update index with deduplicated data
-		idx.Shards = []*index.IndexShard{{
-			SimHashToPos: deduped,
-			ShardID:      0,
-		}}
-
-		if err := index.Save(idx, *output); err != nil {
-			return err
-		}
-
-		fmt.Printf("Removed %d duplicate positions in %v\n", totalDupes, time.Since(start))
+		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize, *contextBefore, *contextAfter)
 
 		defer idx.Close()
 		return nil
@@ -248,6 +170,8 @@ func Run(args []string) error {
 			}
 		}
 
+		fmt.Printf("Found %d similar hashes for SimHash %x\n", len(resultMap), hash)
+
 		// Get first hash and its positions from the result map
 		var firstPositions []int64
 		for _, p := range resultMap {
@@ -278,7 +202,6 @@ func Run(args []string) error {
 
 		defer idx.Close()
 		return nil
-
 	case "hash":
 		if *input == "" {
 			return fmt.Errorf("input file must be specified")
@@ -299,7 +222,7 @@ func Run(args []string) error {
 
 		// Calculate hash
 		hash := simhash.Calculate(string(content), hyperplanes)
-		fmt.Printf("%x\n", hash)
+		fmt.Printf("%x\n", hash) // Only output the hash
 		return nil
 
 	case "compare":
@@ -376,17 +299,26 @@ func printUsage(fs *flag.FlagSet) {
 
 // Add this function to help verify matches
 func showMatchContext(sourceFile string, position int64, chunkSize int, originalText string) {
-	// Read the chunk from position
 	content, _, _, err := chunk.ReadChunk(sourceFile, position, chunkSize, 0, 0)
 	if err != nil {
 		return
 	}
 
-	// Find the common substring
 	commonText := findLongestCommonSubstring(content, originalText)
 	if len(commonText) > 50 {
-		fmt.Printf("\nMatched text:\n%s\n", commonText)
-		fmt.Printf("\nOriginal context:\n%s\n", content[:min(200, len(content))])
+		// Limit output to first 200 characters with ellipsis if needed
+		matchedText := commonText
+		if len(matchedText) > 200 {
+			matchedText = matchedText[:200] + "..."
+		}
+		fmt.Printf("\nMatched text:\n%s\n", matchedText)
+
+		// Limit context to first 100 characters
+		context := content
+		if len(context) > 100 {
+			context = context[:100] + "..."
+		}
+		fmt.Printf("\nOriginal context:\n%s\n", context)
 		fmt.Printf("\nSimilarity: %.2f%%\n", float64(len(commonText))/float64(len(content))*100)
 	}
 }
@@ -428,127 +360,53 @@ func findLongestCommonSubstring(s1, s2 string) string {
 	return s1[startPos:endPos]
 }
 
-// Add this struct to store word occurrences
-type WordOccurrence struct {
-	Word      string
-	Count     int
-	Locations []struct {
-		LineNum int
-		Context string
-	}
-}
+func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
+	fmt.Printf("\n📄 SimHash Lookup Results\n")
+	fmt.Printf("=====================\n\n")
 
-func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, logger *log.Logger, verbose bool) (int, error) {
-	content, err := os.ReadFile(inputPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read input file: %w", err)
+	totalMatches := 0
+	for _, positions := range matches {
+		totalMatches += len(positions)
 	}
 
-	wordlist, err := os.ReadFile(wordlistPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read wordlist: %w", err)
-	}
+	fmt.Printf("🔍 Searching for hash: %016x\n", hash)
+	fmt.Printf("📊 Found %d match(es)\n\n", totalMatches)
 
-	// Store offensive words in a map for quick lookup
-	words := make(map[string]bool)
-	for _, word := range strings.Fields(string(wordlist)) {
-		words[strings.ToLower(strings.TrimSpace(word))] = true
-	}
+	matchNum := 1
+	for matchHash, positions := range matches {
+		fmt.Printf("🎯 Match Group #%d (SimHash: %016x)\n", matchNum, matchHash)
+		fmt.Printf("   Occurrences:         %d occurrence(s)\n\n", len(positions))
 
-	matches := 0
-	lines := strings.Split(string(content), "\n")
+		for i, pos := range positions {
+			fmt.Printf("   📌 Occurrence %d (Position: %d)\n", i+1, pos)
 
-	// Track word statistics
-	wordStats := make(map[string]int)
-
-	fmt.Printf("\n📑 Content Moderation Report\n")
-	fmt.Printf("========================\n\n")
-
-	// Iterate over each line and check for offensive words
-	for i, line := range lines {
-		lineNum := i + 1
-		foundWords := make(map[string]bool) // Use map to avoid duplicates per line
-
-		for word := range words {
-			var found bool
-
-			if modLevel == "strict" {
-				// Strict mode: Match only whole words
-				for _, token := range strings.Fields(line) {
-					cleanedToken := strings.ToLower(strings.Trim(token, ".,!?\"'"))
-					if cleanedToken == word {
-						foundWords[word] = true
-						wordStats[word]++
-						found = true
-					}
-				}
-			} else {
-				// Lenient mode: Match if the word appears anywhere in the line
-				if strings.Contains(strings.ToLower(line), word) {
-					foundWords[word] = true
-					wordStats[word]++
-					found = true
-				}
+			// Read chunk with context
+			content, before, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
+			if err != nil {
+				continue
 			}
 
-			if found {
-				matches++
+			// Truncate context before if needed
+			if len(before) > 200 {
+				before = "..." + before[len(before)-100:]
 			}
-		}
+			fmt.Printf("   ⤴️  Context Before:\n   %s\n\n", before)
 
-		// If any offensive words were found, print them
-		if len(foundWords) > 0 {
-			fmt.Printf("🚨 Line %d:\n", lineNum)
-			fmt.Printf("   %s\n", line)
-
-			// Convert map keys to slice for sorting
-			var words []string
-			for w := range foundWords {
-				words = append(words, w)
+			// Truncate main content if needed
+			if len(content) > 400 {
+				content = content[:400] + "..."
 			}
-			sort.Strings(words)
+			fmt.Printf("   📝 Matched Content:\n   %s\n\n", content)
 
-			fmt.Printf("❌ Found: %s\n", strings.Join(words, ", "))
-			if verbose {
-				fmt.Printf("   Context: %s\n", truncateContext(line, contextSize))
+			// Truncate context after if needed
+			if len(after) > 200 {
+				after = after[:200] + "..."
 			}
-			fmt.Println()
+			fmt.Printf("   ⤵️  Context After:\n   %s\n\n", after)
+
+			fmt.Printf("   --------------------------------------------------\n\n")
 		}
+		matchNum++
 	}
-
-	// Print summary statistics
-	if matches > 0 {
-		fmt.Printf("\n📊 Summary Statistics\n")
-		fmt.Printf("==================\n")
-		fmt.Printf("Total matches found: %d\n\n", matches)
-
-		// Sort words by frequency
-		type wordCount struct {
-			word  string
-			count int
-		}
-		var sorted []wordCount
-		for word, count := range wordStats {
-			sorted = append(sorted, wordCount{word, count})
-		}
-		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].count > sorted[j].count
-		})
-
-		fmt.Printf("Word Frequency:\n")
-		for _, wc := range sorted {
-			fmt.Printf("- '%s': %d occurrence(s)\n", wc.word, wc.count)
-		}
-	} else {
-		fmt.Printf("\n✅ No offensive content found\n")
-	}
-
-	return matches, nil
-}
-
-func truncateContext(text string, size int) string {
-	if len(text) <= size {
-		return text
-	}
-	return text[:size] + "..."
+	fmt.Printf("✨ End of results\n")
 }
