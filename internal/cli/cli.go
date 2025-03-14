@@ -18,9 +18,6 @@ import (
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
-	"log"
-	"os"
-	"time"
 )
 
 func Run(args []string) error {
@@ -399,6 +396,7 @@ func Run(args []string) error {
 		printUsage(fs)
 		return fmt.Errorf("unknown command: %s", *cmd)
 	}
+	return nil
 }
 
 func min(a, b int) int {
