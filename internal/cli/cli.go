@@ -183,7 +183,7 @@ func Run(args []string) error {
 		fmt.Printf("Found %d matches: \n", len(positions))
 		for i, pos := range positions[:min(3, len(positions))] {
 			// TODO: Add a function to read chunk contents
-			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
 				return err
 			}
@@ -193,7 +193,15 @@ func Run(args []string) error {
 				preview = preview[:100] + "..."
 			}
 
-			fmt.Printf("%d. Position: %d, Preview: %s\n", i+1, pos, preview)
+			if contextBeforeStr == "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\n    %s\n", i+1, pos, preview)
+			} else if contextBeforeStr == "" && contextAfterStr != "" {
+				fmt.Printf("%d. Position: %d\n\n    %s\n\n Context after: %s\n", i+1, pos, preview, contextAfterStr)
+			} else if contextBeforeStr != "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
+			} else {
+			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
+			}
 		}
 
 		defer idx.Close()
@@ -211,6 +219,67 @@ func Run(args []string) error {
 
 	// 	stats := idx.Stats()
 
+<<<<<<< HEAD
+=======
+		defer idx.Close()
+		return nil
+
+	case "fuzzy":
+		if *input == "" || *hashStr == "" {
+			return fmt.Errorf("input and hash must be specified")
+		}
+
+		var hash simhash.SimHash
+		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
+			return fmt.Errorf("invalid hash: %w", err)
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			return err
+		}
+
+		// Use fuzzy search to find similar hashes with threshold
+		resultMap, exists := idx.FuzzyLookup(hash, *threshold)
+		if !exists {
+			return fmt.Errorf("No similar hashes found")
+		}
+
+		fmt.Printf("Fond %d similar hashes for SimHash %x\n", len(resultMap), hash)
+		count := 0
+		for similarHash, positions := range resultMap {
+			distance := hash.HammingDistance(similarHash)
+			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
+		                    similarHash,
+		                    distance,
+		                    len(positions))
+
+			// Show sample positions
+			for i, pos := range positions[:min(2, len(positions))] {
+				// TODO: Add a function to read chunk contents
+				content, _, _, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
+				if err != nil {
+					return nil
+				}
+
+				preview := content
+				if len(content) > 100 {
+					preview = content[:100] + "..."
+				}
+
+				fmt.Printf(" %d.%d. Position: %d, Preview: %s\n", count+1, i+1, pos, preview)
+			}
+
+			count++
+			if count >= 3 {
+				fmt.Printf("... and %d more similar hashes\n", len(resultMap)-3)
+				break
+			}
+		}
+
+		defer idx.Close()
+		return nil
+>>>>>>> 574c0c5 (Fix: Absence of content before or after the main content)
 
 	default:
 		// TODO: Setup chunk options
