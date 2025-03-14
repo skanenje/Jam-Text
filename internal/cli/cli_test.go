@@ -22,19 +22,19 @@ func TestRunValidation(t *testing.T) {
 		},
 		{
 			name:    "ivalid command",
-			args:    []string{"program", "-cmd", "invalid"},
+			args:    []string{"program", "-c", "invalid"},
 			wantErr: true,
 			errMsg:  "unknown command: invalid",
 		},
 		{
 			name:    "index without input",
-			args:    []string{"program", "-cmd", "index"},
+			args:    []string{"program", "-c", "index"},
 			wantErr: true,
 			errMsg:  "input and output file paths must be specified",
 		},
 		{
 			name:    "index without output",
-			args:    []string{"program", "-cmd", "index"},
+			args:    []string{"program", "-c", "index"},
 			wantErr: true,
 			errMsg:  "input and output file paths must be specified",
 		},
@@ -64,7 +64,7 @@ func TestRunIndexCommnd(t *testing.T) {
 
 	// Create test input file
 	inputPath := filepath.Join(tmpDir, "input.txt")
-	if err := os.WriteFile(inputPath, []byte("This is a test file content for indexing"), 0644); err != nil {
+	if err := os.WriteFile(inputPath, []byte("This is a test file content for indexing"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +84,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			name: "successful index with defaults",
 			args: []string{
 				"program",
-				"-cmd", "index",
+				"-c", "index",
 				"-i", inputPath,
 				"-o", outputPath,
 			},
@@ -94,7 +94,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			name: "index with all options",
 			args: []string{
 				"program",
-				"-cmd", "index",
+				"-c", "index",
 				"-i", inputPath,
 				"-o", outputPath,
 				"-v",
@@ -109,7 +109,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			},
 			wantErr: false,
 			setup: func() error {
-				return os.MkdirAll(indexDir, 0755)
+				return os.MkdirAll(indexDir, 0o755)
 			},
 			cleanup: func() error {
 				return os.RemoveAll(indexDir)
@@ -119,7 +119,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			name: "index with invalid input file",
 			args: []string{
 				"program",
-				"-cmd", "index",
+				"-c", "index",
 				"-i", "non existent.txt",
 				"-o", outputPath,
 			},
@@ -129,7 +129,7 @@ func TestRunIndexCommnd(t *testing.T) {
 			name: "index with invalid log file path",
 			args: []string{
 				"program",
-				"-cmd", "index",
+				"-c", "index",
 				"-i", inputPath,
 				"-o", outputPath,
 				"-log", "/invalid/path/log.txt",
@@ -174,7 +174,7 @@ func TestRunLookupCommand(t *testing.T) {
 
 	// Create a real index file for testing
 	inputPath := filepath.Join(tmpDir, "input.txt")
-	if err := os.WriteFile(inputPath, []byte("This is test content"), 0644); err != nil {
+	if err := os.WriteFile(inputPath, []byte("This is test content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -182,7 +182,7 @@ func TestRunLookupCommand(t *testing.T) {
 	indexPath := filepath.Join(tmpDir, "test.idx")
 	indexArgs := []string{
 		"program",
-		"-cmd", "index",
+		"-c", "index",
 		"-i", inputPath,
 		"-o", indexPath,
 	}
@@ -201,7 +201,7 @@ func TestRunLookupCommand(t *testing.T) {
 			name: "successful lookup with defaults",
 			args: []string{
 				"program",
-				"-cmd", "lookup",
+				"-c", "lookup",
 				"-i", indexPath,
 				"-h", "108fb9408bf49bee",
 			},
@@ -211,7 +211,7 @@ func TestRunLookupCommand(t *testing.T) {
 			name: "lookup with all options",
 			args: []string{
 				"program",
-				"-cmd", "lookup",
+				"-c", "lookup",
 				"-i", indexPath,
 				"-h", "108fb9408bf49bee",
 				"-v",
@@ -225,7 +225,7 @@ func TestRunLookupCommand(t *testing.T) {
 			name: "lookup with invalid index file",
 			args: []string{
 				"program",
-				"-cmd", "lookup",
+				"-c", "lookup",
 				"-i", "nonexistent.idx",
 				"-h", "108fb9408bf49bee",
 			},
@@ -235,7 +235,7 @@ func TestRunLookupCommand(t *testing.T) {
 			name: "lookup without hash value",
 			args: []string{
 				"program",
-				"-cmd", "lookup",
+				"-c", "lookup",
 				"-i", indexPath,
 			},
 			wantErr: true,
