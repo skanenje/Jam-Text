@@ -2,14 +2,11 @@ package cli
 
 import (
 	"bufio"
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"sort"
-	"strings"
 	"sort"
 	"strings"
 	"time"
@@ -41,11 +38,6 @@ func Run(args []string) error {
 	preserveNewlines := fs.Bool("preserve-nl", true, "Preserve newlines in chunks")
 	indexDir := fs.String("index-dir", "", "Directory to store index shards")
 	threshold := fs.Int("threshold", 3, "Threshold for fuzzy lookup")
-
-	// Content moderation flags
-	wordlistPath := fs.String("wordlist", "", "Path to wordlist file")
-	modLevel := fs.String("level", "strict", "Moderation level (strict|lenient)")
-	contextSize := fs.Int("context", 50, "Context size for matches")
 
 	// Content moderation flags
 	wordlistPath := fs.String("wordlist", "", "Path to wordlist file")
@@ -132,7 +124,7 @@ func Run(args []string) error {
 			return fmt.Errorf("no matches found for hash %x", hash)
 		}
 
-		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize)
+		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize, 100, 100)
 
 		defer idx.Close()
 		return nil
@@ -284,33 +276,11 @@ func Run(args []string) error {
 		if *wordlistPath == "" {
 			return fmt.Errorf("wordlist file must be specified")
 		}
-		
-		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, logger, *verbose)
-		if err != nil {
-			return err
-		}
-		
-		if matches > 0 {
-			return fmt.Errorf("found %d potentially inappropriate matches", matches)
-		}
-		return nil
-
-
-	case "moderate":
-		if *input == "" {
-			return fmt.Errorf("input file must be specified")
-		}
-		if *wordlistPath == "" {
-			return fmt.Errorf("wordlist file must be specified")
-		}
-
-		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, logger, *verbose)
 
 		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, *verbose)
 		if err != nil {
 			return err
 		}
-
 
 		if matches > 0 {
 			return fmt.Errorf("found %d potentially inappropriate matches", matches)
@@ -324,7 +294,6 @@ func Run(args []string) error {
 	}
 	return nil
 }
-
 
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("JamText - A text indexing and similarity search tool")
@@ -585,21 +554,55 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 
 func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
 	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-	
+
 	for simHash, positions := range matches {
 		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
 		for _, pos := range positions {
-			before, _, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
+			// Read the main chunk
+			content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
 			if err != nil {
 				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
 				continue
 			}
-			
+			fmt.Printf("Content: %s\n", content)
+
+			// Read context before if requested
+			var before string
+			if contextBefore > 0 {
+				// Calculate safe position for reading before context
+				beforePos := pos - int64(contextBefore)
+				if beforePos < 0 {
+					// Adjust context size if we're near the start of file
+					beforePos = 0
+					contextBefore = int(pos) // Use whatever space is available
+				}
+
+				if contextBefore > 0 { // Only read if we have space for context
+					beforeContent, err := chunk.ReadChunk(sourceFile, beforePos, contextBefore)
+					if err == nil {
+						before = beforeContent
+					}
+				}
+			}
+
+			// Read context after if requested
+			var after string
+			if contextAfter > 0 {
+				afterPos := pos + int64(chunkSize)
+				// Try to read after context
+				afterContent, err := chunk.ReadChunk(sourceFile, afterPos, contextAfter)
+				if err == nil { // No error means we successfully read after context
+					after = afterContent
+				} else if err == io.EOF {
+					// We hit the end of file, which is fine - just use whatever we got
+					after = "" // or afterContent if it contains partial data
+				}
+			}
+
 			fmt.Printf("Match at position %d:\n", pos)
 			if contextBefore > 0 && len(before) > 0 {
 				fmt.Printf("Before: %s\n", before)
 			}
-			fmt.Printf("Chunk:  %s\n", chunk)
 			if contextAfter > 0 && len(after) > 0 {
 				fmt.Printf("After:  %s\n", after)
 			}
