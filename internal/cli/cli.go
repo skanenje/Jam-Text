@@ -17,6 +17,7 @@ func Run(args []string) error {
 	// TODO: Add more flags
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
+	fmt.Println("here")
 	
 	// Basic commands
 	cmd := fs.String("c", "", "Command to run")
@@ -142,6 +143,64 @@ func Run(args []string) error {
 		defer idx.Close()
 		return nil
 
+	case "dedup":
+		fmt.Println("Here")
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		idx, err := index.Load(*input)
+		if err != nil {
+			fmt.Printf("Error loading index: %v\n", err)
+			return err
+		}
+
+		start := time.Now()
+		deduped := make(map[simhash.SimHash][]int64)
+		totalDupes := 0
+
+		// TODO: Add a function to deduplicate the index
+		for _, shard := range idx.Shards {
+			fmt.Printf("Deduplicating shard %d\n", shard.ShardID)
+			if shard == nil {
+				continue
+			}
+
+			for hash, positions := range shard.SimHashToPos {
+				// Keep only unique positions
+				seen := make(map[int64]bool)
+				unique := []int64{}
+
+				for _, pos := range positions {
+					if !seen[pos] {
+						seen[pos] = true
+						unique = append(unique, int64(pos))
+					}
+				}
+
+				if len(unique) < len(positions) {
+					totalDupes += len(positions) - len(unique)
+				}
+
+				deduped[hash] = unique
+			}
+		}
+
+		// Update index with deduplicated data
+		idx.Shards = []*index.IndexShard{{
+			SimHashToPos: deduped,
+			ShardID:      0,
+		}}
+
+		if err := index.Save(idx, *output); err != nil {
+			return err
+		}
+
+		fmt.Printf("Removed %d duplicate positions in %v\n", totalDupes, time.Since(start))
+
+		defer idx.Close()
+		return nil
+		
 	case "stats":
 		if *input == "" {
 			return fmt.Errorf("input file must be specified")
