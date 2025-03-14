@@ -89,11 +89,17 @@ func NewPermutationTable(hashBits, bands int) *PermutationTable {
 
 	bandSize := hashBits / bands
 	permutations := make([][]int, bands)
-
-	// Create permutation for each band
+	
+	// Create random permutations for each band
 	for i := 0; i < bands; i++ {
-		perm := rand.Perm(hashBits)
-		permutations[i] = perm[:bandSize]
+		perm := make([]int, hashBits)
+		for j := 0; j < hashBits; j++ {
+			perm[j] = j
+		}
+		rand.Shuffle(len(perm), func(i, j int) {
+			perm[i], perm[j] = perm[j], perm[i]
+		})
+		permutations[i] = perm
 	}
 
 	return &PermutationTable{
@@ -103,18 +109,21 @@ func NewPermutationTable(hashBits, bands int) *PermutationTable {
 	}
 }
 
-// GetBandSignatures generates band signatures for a SimHash
+// GetBandSignatures returns LSH band signatures for a SimHash
 func (pt *PermutationTable) GetBandSignatures(hash SimHash) []uint64 {
 	signatures := make([]uint64, pt.bands)
+	
 	for i := 0; i < pt.bands; i++ {
-		var sig uint64
-		for j, bitPos := range pt.permutations[i] {
+		var bandHash uint64
+		for j := 0; j < pt.bandSize; j++ {
+			bitPos := pt.permutations[i][j]
 			if (hash & (1 << bitPos)) != 0 {
-				sig |= 1 << j
+				bandHash |= 1 << j
 			}
 		}
-		signatures[i] = sig
+		signatures[i] = bandHash
 	}
+	
 	return signatures
 }
 
