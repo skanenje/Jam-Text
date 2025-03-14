@@ -3,11 +3,6 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"log"
-	"os"
-	"strings"
-	"time"
-
 	"jamtext/internal/chunk"
 	"jamtext/internal/index"
 	"jamtext/internal/simhash"
@@ -16,7 +11,6 @@ import (
 func Run(args []string) error {
 	fs := flag.NewFlagSet("textindex", flag.ExitOnError)
 
-	// TODO: Add more flags
 	verbose := fs.Bool("v", false, "Enable Verbose output")
 	logFile := fs.String("log", "", "Log file path(default: stderr)")
 
@@ -49,8 +43,10 @@ func Run(args []string) error {
 		}
 		defer f.Close()
 		logger = log.New(f, "", log.LstdFlags)
-	} else {
+	} else if *verbose {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
+	} else {
+		logger = log.New(io.Discard, "", 0) // Discard logs unless verbose or log file specified
 	}
 
 	switch *cmd {
@@ -61,7 +57,6 @@ func Run(args []string) error {
 
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
-		// TODO: Setup chunk options
 		opts := chunk.ChunkOptions{
 			ChunkSize:        *size,
 			OverlapSize:      *overlapSize,
@@ -75,7 +70,6 @@ func Run(args []string) error {
 
 		start := time.Now()
 
-		// TODO: Add a function to index a file
 		idx, err := chunk.ProcessFile(*input, opts, hyperplanes, *indexDir)
 		if err != nil {
 			return err
@@ -85,7 +79,6 @@ func Run(args []string) error {
 			return err
 		}
 
-		// TODO: Add a function to get stats for output file
 		stats := idx.Stats()
 		fmt.Printf("Indexed %d unique hashes with %d total positions in %v\n",
 			stats["unique_hashes"],
@@ -96,7 +89,6 @@ func Run(args []string) error {
 		return nil
 
 	case "lookup":
-		// TODO: Add a function to lookup chunks
 		if *input == "" || *hashStr == "" {
 			return fmt.Errorf("input and hash must be specified")
 		}
@@ -116,44 +108,28 @@ func Run(args []string) error {
 			return fmt.Errorf("SimHash not found")
 		}
 
-		fmt.Printf("\n=== Found %d matches for SimHash %x ===\n\n", len(positions), hash)
-
-		maxResults := 5 // Show more results by default
-		if len(positions) > maxResults {
-			fmt.Printf("Showing top %d of %d matches:\n\n", maxResults, len(positions))
-		}
-
-		for i, pos := range positions[:min(maxResults, len(positions))] {
+		fmt.Printf("Found %d positions for SimHash %x\n", len(positions), hash)
+		for i, pos := range positions[:min(3, len(positions))] {
+			// TODO: Add a function to read chunk contents
 			content, contextBeforeStr, contextAfterStr, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
 			if err != nil {
-				return fmt.Errorf("failed to read chunk at position %d: %w", pos, err)
+				return nil
 			}
 
-			// Format the preview with word wrapping
-			preview := formatPreview(content, 80) // 80 chars width
-
-			// Print result with clear separation and formatting
-			fmt.Printf("Match #%d:\n", i+1)
-			fmt.Printf("Position: %d\n", pos)
-			fmt.Printf("─────────────────────────────\n")
-
-			if contextBeforeStr != "" {
-				fmt.Printf("Context before:\n%s\n", formatPreview(contextBeforeStr, 80))
-				fmt.Printf("─────────────────────────────\n")
+			preview := content
+			if len(content) > 100 {
+				preview = content[:100] + "..."
 			}
 
-			fmt.Printf("Matched text:\n%s\n", preview)
-
-			if contextAfterStr != "" {
-				fmt.Printf("─────────────────────────────\n")
-				fmt.Printf("Context after:\n%s\n", formatPreview(contextAfterStr, 80))
+			if contextBeforeStr == "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\n    %s\n", i+1, pos, preview)
+			} else if contextBeforeStr == "" && contextAfterStr != "" {
+				fmt.Printf("%d. Position: %d\n\n    %s\n\n Context after: %s\n", i+1, pos, preview, contextAfterStr)
+			} else if contextBeforeStr != "" && contextAfterStr == "" {
+				fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n", i+1, pos, contextBeforeStr, preview)
+			} else {
+			    fmt.Printf("%d. Position: %d\nContext before: %s\n\n    %s\n\n Context after: %s\n", i+1, pos, contextBeforeStr, preview, contextAfterStr)
 			}
-
-			fmt.Printf("═════════════════════════════\n\n")
-		}
-
-		if len(positions) > maxResults {
-			fmt.Printf("... and %d more matches. Use -max-results flag to show more.\n", len(positions)-maxResults)
 		}
 
 		defer idx.Close()
@@ -186,55 +162,59 @@ func Run(args []string) error {
 			return fmt.Errorf("input and hash must be specified")
 		}
 
-		var hash simhash.SimHash
-		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
-			return fmt.Errorf("invalid hash: %w", err)
-		}
-
 		idx, err := index.Load(*input)
 		if err != nil {
 			return err
 		}
 
-		// Use fuzzy search to find similar hashes with threshold
+		var hash simhash.SimHash
+		if _, err := fmt.Sscanf(*hashStr, "%x", &hash); err != nil {
+			return fmt.Errorf("invalid hash: %w", err)
+		}
+
 		resultMap, exists := idx.FuzzyLookup(hash, *threshold)
 		if !exists {
 			return fmt.Errorf("No similar hashes found")
 		}
 
-		fmt.Printf("Found %d similar hashes for SimHash %x\n", len(resultMap), hash)
+		fmt.Printf("Fond %d similar hashes for SimHash %x\n", len(resultMap), hash)
 		count := 0
 		for similarHash, positions := range resultMap {
 			distance := hash.HammingDistance(similarHash)
 			fmt.Printf("SimHash: %016x (distance: %d) - %d matches\n",
-				similarHash,
-				distance,
-				len(positions))
+		                    similarHash,
+		                    distance,
+		                    len(positions))
 
-			// Show sample positions
-			for i, pos := range positions[:min(2, len(positions))] {
-				// TODO: Add a function to read chunk contents
-				content, _, _, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize, *contextBefore, *contextAfter)
-				if err != nil {
-					return nil
-				}
-
-				preview := content
-				if len(content) > 100 {
-					preview = content[:100] + "..."
-				}
-
-				fmt.Printf(" %d.%d. Position: %d, Preview: %s\n", count+1, i+1, pos, preview)
-			}
-
-			count++
-			if count >= 3 {
-				fmt.Printf("... and %d more similar hashes\n", len(resultMap)-3)
-				break
+			for _, pos := range positions {
+				showMatchContext(idx.SourceFile, pos, idx.ChunkSize, originalChunk)
 			}
 		}
 
 		defer idx.Close()
+		return nil
+
+	case "hash":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+		// Generate hyperplanes
+		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
+
+		if *verbose {
+			logger.Printf("Generated %d hyperplanes\n", len(hyperplanes))
+		}
+
+		// Read the file content
+		content, err := os.ReadFile(*input)
+		if err != nil {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+
+		// Calculate hash
+		hash := simhash.Calculate(string(content), hyperplanes)
+		fmt.Printf("%x\n", hash) // Only output the hash
 		return nil
 
 	default:
@@ -259,27 +239,12 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("  index  - Create index from text file")
 	fmt.Println("  lookup - Exact lookup by SimHash")
 	fmt.Println("  fuzzy  - Fuzzy lookup by SimHash with threshold")
+	fmt.Println("  hash   - Calculate SimHash for a file")
 	fmt.Println("  stats  - Show index statistics")
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println(" ./jamtext -c index -i book.txt -o book.idx -s 4096")
-	fmt.Println("  ./text -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  ./jamtext -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
-}
-
-func formatPreview(text string, width int) string {
-	if len(text) == 0 {
-		return ""
-	}
-
-	// Trim excessive whitespace
-	text = strings.TrimSpace(text)
-
-	// If text is too long, truncate with ellipsis
-	if len(text) > width {
-		return text[:width-3] + "..."
-	}
-
-	return text
+	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
+	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
+	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
 }
