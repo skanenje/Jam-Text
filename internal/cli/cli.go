@@ -144,14 +144,12 @@ func Run(args []string) error {
 		return nil
 
 	case "dedup":
-		fmt.Println("Here")
 		if *input == "" {
 			return fmt.Errorf("input file must be specified")
 		}
 
 		idx, err := index.Load(*input)
 		if err != nil {
-			fmt.Printf("Error loading index: %v\n", err)
 			return err
 		}
 
