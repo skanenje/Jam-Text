@@ -1,6 +1,7 @@
 package index
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -108,5 +109,28 @@ func TestAdd(t *testing.T) {
 				t.Errorf("Postion %d not found for hash %x", tt.pos, tt.hash)
 			}
 		})
+	}
+}
+
+func TestSharding(t *testing.T) {
+	tmpDir := t.TempDir()
+	idx := New("test.txt", 4096, simhash.GenerateHyperplanes(128, 64), tmpDir)
+
+	// Adding MaxShaedSize + 1 entries to force shard rotation
+	for i := 0; i < MaxShardSize; i++ {
+		hash := simhash.SimHash(i)
+		if err := idx.Add(hash, int64(i)); err != nil {
+			t.Fatalf("Failed to add hash: %v", err)
+		}
+	}
+
+	if len(idx.Shards) != 2 {
+		t.Errorf("Expected 2 shards after rotation, got %d", len(idx.Shards))
+	}
+
+	// Verify first shard was persisted
+	shardPath := filepath.Join(tmpDir, idx.ShardFilename+".0")
+	if _, err := os.Stat(shardPath); os.IsNotExist(err) {
+		t.Errorf("Shard file not created: %s", shardPath)
 	}
 }
