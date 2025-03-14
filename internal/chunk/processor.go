@@ -181,8 +181,9 @@ func ProcessFile(filename string, opts ChunkOptions, hyperplanes [][]float64, in
 
 			// Create the chunk
 			chunk := Chunk{
-				StartOffset: offset,
 				Content:     string(chunkData[:splitPos]),
+				StartOffset: offset,
+				Length:      splitPos,
 				IsComplete:  err == io.EOF,
 				Metadata: map[string]string{
 					"timestamp": time.Now().Format(time.RFC3339),

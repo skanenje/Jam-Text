@@ -1,60 +1,62 @@
 # Jam-Text
 
-A high-performance text indexer using SimHash fingerprints for text similarity search. Written in Go, it provides efficient indexing and searching of large text files through vector similarity with random hyperplanes.
-## Core Components
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/go-1.24.1-blue.svg)](https://golang.org/dl/)
 
-### SimHash Implementation
-- 128-dimensional vector space
-- 64-bit fingerprints
-- Parallel hyperplane generation using Box-Muller transform
-- Normalized random hyperplanes
-- Locality-Sensitive Hashing (LSH) support
-- Configurable band signatures for fast similarity search
-- Two vectorization strategies:
-  - Frequency-based: Uses word frequencies with MD5 dimension mapping
-  - N-gram based: Uses character n-grams with normalized vectors
+[Jam-Text](https://github.com/yourusername/jam-text) is a high-performance text indexer using SimHash fingerprints for text similarity search. Written in Go, it provides efficient indexing and searching of large text files through vector similarity with random hyperplanes.
 
-### Chunk Processing
-- Default chunk size: 4KB
-- Configurable overlap: 256 bytes
-- Boundary-aware splitting
-- Metadata support per chunk
-- Parallel processing via worker pool
+## Installing
 
-### Worker Pool
-- Context-based graceful shutdown
-- Buffered task channels
-- Dynamic worker scaling
-- Concurrent task processing
+For the latest stable version:
 
-## Use Cases
-
-## Plugerism Detection
 ```bash
-# index the desired corpus of data
-./jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
-
-# hash the particular document you want
-HASH=$(./jamtext -c hash -i testPlagurism.txt)
-
-# use the hash for lookup with fuzzy search
-./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+go install github.com/yourusername/jam-text@latest
 ```
 
-## Similarity Search
-```bash
-# compare two text documents to find if they are similar
-./jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
+Or build from source:
 
+```bash
+make build
 ```
-## Moderation for offensive language
+
+## Quick Start
+
+Index a document and search for similar text:
+
 ```bash
-jamtext -cmd index -i <input_file> -o <output_file>
+# Index the desired corpus of data
+jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
 
-jamtext -cmd lookup -i <input_file> -o <output_file>
+# Hash a particular document
+HASH=$(jamtext -c hash -i testPlagiarism.txt)
 
-# Moderate content for offensive language
-jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
+# Use the hash for lookup with fuzzy search
+jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+```
+
+## Contribute
+
+There are many ways to contribute to Jam-Text:
+* [Submit bugs](https://github.com/yourusername/jam-text/issues) and help verify fixes
+* Review [source code changes](https://github.com/yourusername/jam-text/pulls)
+* [Contribute bug fixes](CONTRIBUTING.md)
+
+## Documentation
+
+* [Getting Started](docs/guides/getting-started.md)
+* [CLI Documentation](docs/cli.md)
+* [Architecture Guide](docs/architecture/design.md)
+* [API Reference](docs/api/README.md)
+
+## Core Features
+
+* SimHash-based text fingerprinting
+* Efficient chunk processing with configurable sizes
+* Parallel processing with worker pools
+* Locality-Sensitive Hashing (LSH) support
+* Two vectorization strategies:
+  * Frequency-based with MD5 dimension mapping
+  * N-gram based with normalized vectors
 
 ## Building
 
@@ -80,83 +82,11 @@ go build ./cmd/main.go
 │   ├── cli/            # Command handling
 │   ├── chunk/          # Text chunking
 │   ├── index/          # Index management
-│   └── simhash/        # SimHash implementation with LSH
+│   └── simhash/        # SimHash implementation
 ├── go.mod
 └── Makefile
 ```
 
-## Technical Details
+## Roadmap
 
-### SimHash Parameters
-```go
-const (
-    VectorDimensions = 128
-    NumHyperplanes   = 64
-)
-```
-
-### Vectorization Options
-- Frequency-based vectorization:
-  - Word-level tokenization
-  - MD5-based dimension mapping
-  - Vector normalization
-  - Thread-safe implementation
-- N-gram vectorization:
-  - Configurable n-gram size
-  - Normalized vector output
-  - Fallback for short texts
-  - Efficient n-gram generation
-
-### LSH Configuration
-- Configurable band size
-- Random permutation generation
-- Band signature computation
-- Optimized for similarity search
-
-### Performance Features
-- Parallel hyperplane generation
-- Concurrent chunk processing
-- Buffered worker pools
-- Context-based cancellation
-- Efficient memory management
-- Thread-safe random number generation
-- Optimized vector operations
-
-### Moderation Features
-- Configurable word list support
-- Strict and lenient matching modes
-- Context-aware reporting
-- Word frequency analysis
-- Thread-safe processing
-- Detailed violation reports
-
-## Documentation
-
-Comprehensive documentation is available in the [docs](docs/) directory:
-
-- Package documentation with examples and best practices
-- Architecture and design documents
-- Performance tuning guides
-- API reference
-
-For package-level documentation, use `go doc`:
-
-```bash
-go doc jamtext/internal/simhash
-go doc jamtext/internal/chunk
-go doc jamtext/internal/index
-```
-
-## Development
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## License
-
-[License information to be added]
+For details on planned features and future direction, please refer to our [roadmap](docs/roadmap.md).
