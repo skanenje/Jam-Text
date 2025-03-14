@@ -1,23 +1,18 @@
 # Jam-Text
 
 A high-performance text indexer using SimHash fingerprints for text similarity search. Written in Go, it provides efficient indexing and searching of large text files through vector similarity with random hyperplanes.
-
-## Current Status
-
-✅ Implemented:
-- Parallel chunk processing architecture
-- SimHash core implementation
-- Worker pool for concurrent processing
-- CLI framework
-- Basic project structure
-
-🚧 In Progress:
-- Index command implementation
-- Lookup command implementation
-- Index storage serialization
-- Full CLI functionality
-
 ## Core Components
+
+### SimHash Implementation
+- 128-dimensional vector space
+- 64-bit fingerprints
+- Parallel hyperplane generation using Box-Muller transform
+- Normalized random hyperplanes
+- Locality-Sensitive Hashing (LSH) support
+- Configurable band signatures for fast similarity search
+- Two vectorization strategies:
+  - Frequency-based: Uses word frequencies with MD5 dimension mapping
+  - N-gram based: Uses character n-grams with normalized vectors
 
 ### Chunk Processing
 - Default chunk size: 4KB
@@ -26,28 +21,31 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Metadata support per chunk
 - Parallel processing via worker pool
 
-### SimHash Implementation
-- 128-dimensional vector space
-- 64-bit fingerprints
-- Parallel hyperplane generation
-- Box-Muller transform for normal distribution
-- Normalized random hyperplanes
-- Hamming distance similarity comparison
-
 ### Worker Pool
 - Context-based graceful shutdown
 - Buffered task channels
 - Dynamic worker scaling
 - Concurrent task processing
 
-## Usage
+## Use Cases
 
+## Plugerism Detection
 ```bash
-# Index a file (in development)
-jamtext -cmd index -i <input_file> -o <output_file>
+# index the desired corpus of data
+./jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
 
-# Lookup similar text (in development)
-jamtext -cmd lookup -i <input_file> -o <output_file>
+# hash the particular document you want
+HASH=$(./jamtext -c hash -i testPlagurism.txt)
+
+# use the hash for lookup with fuzzy search
+./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+```
+
+## Similarity Search
+```bash
+# compare two text documents to find if they are similar
+./jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
+
 ```
 
 ## Building
@@ -74,31 +72,38 @@ go build ./cmd/main.go
 │   ├── cli/            # Command handling
 │   ├── chunk/          # Text chunking
 │   ├── index/          # Index management
-│   └── simhash/        # SimHash implementation
+│   └── simhash/        # SimHash implementation with LSH
 ├── go.mod
 └── Makefile
 ```
 
 ## Technical Details
 
-### Chunk Options
+### SimHash Parameters
 ```go
-ChunkOptions {
-    ChunkSize:        4096,  // Default chunk size
-    OverlapSize:      256,   // Overlap between chunks
-    SplitOnBoundary:  true,  // Respect text boundaries
-    BoundaryChars:    ".!?\n",
-    MaxChunkSize:     6144,
-    PreserveNewlines: true,
-}
+const (
+    VectorDimensions = 128
+    NumHyperplanes   = 64
+)
 ```
 
-### SimHash Parameters
-- Vector Dimensions: 128
-- Number of Hyperplanes: 64
-- Supported Vectorization Methods:
-  - Frequency-based
-  - N-gram based
+### Vectorization Options
+- Frequency-based vectorization:
+  - Word-level tokenization
+  - MD5-based dimension mapping
+  - Vector normalization
+  - Thread-safe implementation
+- N-gram vectorization:
+  - Configurable n-gram size
+  - Normalized vector output
+  - Fallback for short texts
+  - Efficient n-gram generation
+
+### LSH Configuration
+- Configurable band size
+- Random permutation generation
+- Band signature computation
+- Optimized for similarity search
 
 ### Performance Features
 - Parallel hyperplane generation
@@ -106,15 +111,27 @@ ChunkOptions {
 - Buffered worker pools
 - Context-based cancellation
 - Efficient memory management
+- Thread-safe random number generation
+- Optimized vector operations
+
+## Documentation
+
+Comprehensive documentation is available in the [docs](docs/) directory:
+
+- Package documentation with examples and best practices
+- Architecture and design documents
+- Performance tuning guides
+- API reference
+
+For package-level documentation, use `go doc`:
+
+```bash
+go doc jamtext/internal/simhash
+go doc jamtext/internal/chunk
+go doc jamtext/internal/index
+```
 
 ## Development
-
-### Ignored Files
-- `*.txt`: Text files
-- `*.idx`: Index files
-- `*.shard`: Shard data
-- `*.dat`: Data files
-- `.vscode/`: IDE settings
 
 ## Contributing
 
