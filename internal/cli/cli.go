@@ -224,6 +224,23 @@ func Run(args []string) error {
 		defer idx.Close()
 		return nil
 
+	case "stats":
+		if *input == "" {
+			return fmt.Errorf("input file must be specified")
+		}
+
+	// 	idx, err := index.Load(*input)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	stats := idx.Stats()
+
+<<<<<<< HEAD
+=======
+		defer idx.Close()
+		return nil
+
 	case "fuzzy":
 		if *input == "" || *hashStr == "" {
 			return fmt.Errorf("input and hash must be specified")
