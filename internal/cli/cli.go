@@ -310,11 +310,11 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  textindex -c index -i book.txt -o book.idx -s 4096")
-	fmt.Println("  textindex -c lookup -i book.idx -h a1b2c3d4e5f6")
-	fmt.Println("  textindex -c fuzzy -i book.idx -h a1b2c3d4e5f6 -threshold 5")
-	fmt.Println("  textindex -c hash -i text.txt")
-	fmt.Println("  textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt")
+	fmt.Println("  ./textindex -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
+	fmt.Println("  ./textindex -c lookup -i <index_file.idx> -h <simhash_value>")
+	fmt.Println("  ./textindex -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
+	fmt.Println("  ./textindex -c hash -i <input_file.txt>")
+	fmt.Println("  ./textindex -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
 }
 
 // Add this function to help verify matches
