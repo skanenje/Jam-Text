@@ -419,14 +419,6 @@ type WordOccurrence struct {
 		LineNum int
 		Context string
 	}
-// Add this struct to store word occurrences
-type WordOccurrence struct {
-	Word      string
-	Count     int
-	Locations []struct {
-		LineNum int
-		Context string
-	}
 }
 
 func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, verbose bool) (int, error) {
@@ -455,34 +447,11 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 			severity = strings.ToLower(strings.TrimSpace(parts[1]))
 		}
 		words[word] = severity
-	// Store offensive words with their severity in a map
-	words := make(map[string]string) // word -> severity
-	scanner := bufio.NewScanner(strings.NewReader(string(wordlist)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.Split(line, ",")
-		word := strings.ToLower(strings.TrimSpace(parts[0]))
-		severity := "medium" // default severity
-		if len(parts) > 1 {
-			severity = strings.ToLower(strings.TrimSpace(parts[1]))
-		}
-		words[word] = severity
 	}
 
 	matches := 0
 	lines := strings.Split(string(content), "\n")
 
-	// Track word statistics with severity
-	type occurrence struct {
-		count    int
-		severity string
-		contexts []string
-		lineNums []int
-	}
-	wordStats := make(map[string]*occurrence)
 	// Track word statistics with severity
 	type occurrence struct {
 		count    int
@@ -501,7 +470,6 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		foundWords := make(map[string]bool) // Use map to avoid duplicates per line
 
 		for word, severity := range words {
-		for word, severity := range words {
 			var found bool
 
 			if modLevel == "strict" {
@@ -516,16 +484,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 						}
 						wordStats[word].count++
 						wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-						wordStats[word].contexts = append(wordStats[word].contexts, 
-							truncateContext(line, contextSize))
-						if _, exists := wordStats[word]; !exists {
-							wordStats[word] = &occurrence{severity: severity}
-						}
-						wordStats[word].count++
-						wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-						wordStats[word].contexts = append(wordStats[word].contexts,
-						wordStats[word].contexts = append(wordStats[word].contexts,
-							truncateContext(line, contextSize))
+						wordStats[word].contexts = append(wordStats[word].contexts, truncateContext(line, contextSize))
 					}
 				}
 			} else {
@@ -538,16 +497,7 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 					}
 					wordStats[word].count++
 					wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-					wordStats[word].contexts = append(wordStats[word].contexts, 
-						truncateContext(line, contextSize))
-					if _, exists := wordStats[word]; !exists {
-						wordStats[word] = &occurrence{severity: severity}
-					}
-					wordStats[word].count++
-					wordStats[word].lineNums = append(wordStats[word].lineNums, lineNum)
-					wordStats[word].contexts = append(wordStats[word].contexts,
-					wordStats[word].contexts = append(wordStats[word].contexts,
-						truncateContext(line, contextSize))
+					wordStats[word].contexts = append(wordStats[word].contexts, truncateContext(line, contextSize))
 				}
 			}
 
@@ -557,38 +507,21 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		}
 
 		// If any offensive words were found, print them by severity
-		// If any offensive words were found, print them by severity
 		if len(foundWords) > 0 {
 			fmt.Printf("🚨 Line %d:\n", lineNum)
 			fmt.Printf("   %s\n", line)
 
 			// Group words by severity
 			severityGroups := make(map[string][]string)
-			// Group words by severity
-			severityGroups := make(map[string][]string)
 			for w := range foundWords {
 				sev := words[w]
 				severityGroups[sev] = append(severityGroups[sev], w)
-				sev := words[w]
-				severityGroups[sev] = append(severityGroups[sev], w)
 			}
 
 			// Print words by severity
 			for _, sev := range []string{"high", "medium", "low"} {
 				if words, ok := severityGroups[sev]; ok {
 					sort.Strings(words)
-					fmt.Printf("❌ %s severity: %s\n", 
-						strings.Title(sev), 
-						strings.Join(words, ", "))
-				}
-			}
-
-			// Print words by severity
-			for _, sev := range []string{"high", "medium", "low"} {
-				if words, ok := severityGroups[sev]; ok {
-					sort.Strings(words)
-					fmt.Printf("❌ %s severity: %s\n",
-						strings.Title(sev),
 					fmt.Printf("❌ %s severity: %s\n",
 						strings.Title(sev),
 						strings.Join(words, ", "))
@@ -637,41 +570,6 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 				fmt.Printf("'%s' (%d occurrences)\n", w.word, w.stats.count)
 				if verbose {
 					for i, context := range w.stats.contexts {
-						fmt.Printf("  Line %d: %s\n", 
-							w.stats.lineNums[i], context)
-					}
-				}
-			}
-		// Print statistics by severity
-		for _, severity := range []string{"high", "medium", "low"} {
-			fmt.Printf("\n%s Severity Words:\n", strings.Title(severity))
-			fmt.Printf("------------------\n")
-
-			// Collect words of current severity
-			var sevWords []struct {
-				word  string
-				stats *occurrence
-			}
-			for word, stats := range wordStats {
-				if stats.severity == severity {
-					sevWords = append(sevWords, struct {
-						word  string
-						stats *occurrence
-					}{word, stats})
-				}
-			}
-
-			// Sort by frequency
-			sort.Slice(sevWords, func(i, j int) bool {
-				return sevWords[i].stats.count > sevWords[j].stats.count
-			})
-
-			// Print details
-			for _, w := range sevWords {
-				fmt.Printf("'%s' (%d occurrences)\n", w.word, w.stats.count)
-				if verbose {
-					for i, context := range w.stats.contexts {
-						fmt.Printf("  Line %d: %s\n",
 						fmt.Printf("  Line %d: %s\n",
 							w.stats.lineNums[i], context)
 					}
@@ -680,18 +578,9 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 		}
 	} else {
 		fmt.Println("✅ No concerning content found")
-		fmt.Println("✅ No concerning content found")
 	}
 
 	return matches, nil
-}
-
-func truncateContext(text string, size int) string {
-	if len(text) <= size {
-		return text
-	}
-	return text[:size/2] + "..." + text[len(text)-size/2:]
-	return text[:size/2] + "..." + text[len(text)-size/2:]
 }
 
 func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
@@ -700,18 +589,18 @@ func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[sim
 	for simHash, positions := range matches {
 		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
 		for _, pos := range positions {
-			chunk, before, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
+			before, _, after, err := chunk.ReadChunk(sourceFile, pos, chunkSize, contextBefore, contextAfter)
 			if err != nil {
 				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
 				continue
 			}
 			
 			fmt.Printf("Match at position %d:\n", pos)
-			if len(before) > 0 {
+			if contextBefore > 0 && len(before) > 0 {
 				fmt.Printf("Before: %s\n", before)
 			}
 			fmt.Printf("Chunk:  %s\n", chunk)
-			if len(after) > 0 {
+			if contextAfter > 0 && len(after) > 0 {
 				fmt.Printf("After:  %s\n", after)
 			}
 			fmt.Println("---")
@@ -719,26 +608,9 @@ func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[sim
 	}
 }
 
-func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
-	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-
-	for simHash, positions := range matches {
-		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
-		for _, pos := range positions {
-			chunk, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
-			if err != nil {
-				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
-				continue
-			}
-
-			if len(chunk) == 0 {
-				fmt.Printf("Empty chunks starting at position %d\n", pos)
-				break
-			} else {
-				fmt.Printf("Match at position %d:\n", pos)
-				fmt.Printf("Chunk:  %s\n", chunk)
-				fmt.Println("---")
-			}
-		}
+func truncateContext(text string, size int) string {
+	if len(text) <= size {
+		return text
 	}
+	return text[:size/2] + "..." + text[len(text)-size/2:]
 }
