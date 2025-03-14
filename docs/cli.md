@@ -19,10 +19,15 @@ func main() {
 ### 2. Command Processing (`internal/cli/cli.go`)
 
 #### Command Line Options
-The CLI supports various flags for configuration:
 
 ##### Basic Flags
 - `-c`: Command to execute (required)
+  - `index`: Create index from text file
+  - `lookup`: Exact lookup by SimHash
+  - `fuzzy`: Fuzzy lookup with threshold
+  - `hash`: Calculate SimHash for a file
+  - `stats`: Show index statistics
+  - `compare`: Compare two text files
 - `-i`: Input file path
 - `-o`: Output file path
 - `-v`: Enable verbose output
@@ -65,144 +70,93 @@ jamtext -c index -i <input_file> -o <output_file> [options]
    - Saves index to specified output
    - Displays processing statistics
 
-#### Example
-```bash
-jamtext -c index -i book.txt -o book.idx -s 4096 -overlap 256
-```
-
-### 2. Lookup Command
-Searches indexed files for similar text chunks.
+### 2. Compare Command
+Compares two text files for similarity.
 
 #### Usage
 ```bash
-jamtext -c lookup -i <index_file> -h <hash> [options]
+jamtext -c compare -i <file1> -i2 <file2> [-o <report_file>]
 ```
 
 #### Operation Flow
-1. **Index Loading**
-   - Opens and validates index file
-   - Prepares search structures
+1. **Document Loading**
+   - Reads both input files
+   - Initializes similarity detector
 
-2. **Search Process**
-   - Locates matching positions
-   - Retrieves original text chunks
-   - Adds contextual information
+2. **Comparison Process**
+   - Calculates SimHash fingerprints
+   - Performs similarity analysis
+   - Generates detailed comparison report
 
-3. **Results Display**
-   - Shows top matches (maximum 3)
-   - Includes position and text preview
+3. **Output**
+   - Displays similarity metrics
+   - Optionally saves detailed report
 
-#### Example
+### 3. Hash Command
+Generates SimHash for a single document.
+
+#### Usage
 ```bash
-jamtext -c lookup -i book.idx -h f7a3d921 -context-before 100 -context-after 100
+jamtext -c hash -i <input_file>
 ```
+
+#### Operation Flow
+1. **Processing**
+   - Reads input file
+   - Generates hyperplanes
+   - Calculates SimHash
+
+2. **Output**
+   - Displays 64-bit hash value in hexadecimal
 
 ## Integration with Other Packages
 
-### 1. Chunk Package (`internal/chunk/`)
-- Text segmentation management
-- Chunk processing coordination
-- File reading operations
+### Package Dependencies
+- `chunk`: Text segmentation
+- `simhash`: Fingerprint generation
+- `index`: Storage management
 
-### 2. Index Package (`internal/index/`)
-- Fingerprint storage
-- Index persistence
-- Search operations
-
-### 3. SimHash Package (`internal/simhash/`)
-- Text fingerprinting
-- Similarity calculations
-- Hyperplane management
-
-## Error Handling
-
-The CLI package implements comprehensive error handling:
-
-1. **Input Validation**
-   - Required parameter checking
-   - File path validation
-   - Command syntax verification
-
-2. **Runtime Error Management**
-   - File operation errors
-   - Processing failures
-   - Resource allocation issues
-
-3. **User Feedback**
-   - Clear error messages
-   - Processing statistics
-   - Operation status updates
-
-## Logging
-
-### Configuration
-- Default: Logs to stderr
-- Optional file logging with `-log` flag
-- Verbose mode with `-v` flag
-
-### Log Content
-- Operation progress
-- Error information
-- Performance metrics
-- Debug information (in verbose mode)
-
-## Performance Considerations
-
-1. **Resource Management**
-   - Efficient file handling
-   - Memory-conscious processing
-   - Proper resource cleanup
-
-2. **Processing Optimization**
-   - Parallel processing support
-   - Configurable chunk sizes
-   - Optimized search operations
+### Error Handling
+- Comprehensive input validation
+- Detailed error reporting
+- Resource cleanup on failure
 
 ## Best Practices
 
-1. **Index Command**
-   - Use appropriate chunk sizes for your content
-   - Enable boundary splitting for text files
-   - Configure overlap based on content structure
+### Command Selection
+- Use `index` for corpus preparation
+- `compare` for direct file comparison
+- `hash` for single document fingerprinting
+- `fuzzy` for similarity search
 
-2. **Lookup Command**
-   - Provide sufficient context for meaningful results
-   - Use appropriate similarity thresholds
-   - Consider index size for performance
+### Performance Optimization
+- Choose appropriate chunk sizes
+- Enable boundary splitting for text
+- Configure overlap based on content
 
 ## Examples
 
-### Basic Indexing
+### Basic Operations
 ```bash
-# Index with default settings
-jamtext -c index -i document.txt -o document.idx
+# Index a document
+jamtext -c index -i book.txt -o book.idx
 
-# Index with custom chunk size
-jamtext -c index -i document.txt -o document.idx -s 8192
+# Generate document hash
+jamtext -c hash -i document.txt
+
+# Compare two files
+jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
 ```
 
-### Advanced Indexing
+### Advanced Usage
 ```bash
 # Index with custom settings
-jamtext -c index -i document.txt -o document.idx \
-    -s 4096 \
-    -overlap 512 \
-    -boundary=true \
-    -boundary-chars ".!?\n" \
-    -max-size 8192 \
-    -preserve-nl=true \
-    -index-dir ./indexes
-```
+jamtext -c index -i book.txt -o book.idx \
+    -s 4096 -overlap 512 -boundary=true
 
-### Lookup Operations
-```bash
-# Basic lookup
-jamtext -c lookup -i document.idx -h <hash>
-
-# Lookup with extended context
-jamtext -c lookup -i document.idx -h <hash> \
-    -context-before 200 \
-    -context-after 200
+# Fuzzy search with context
+jamtext -c fuzzy -i book.idx -h <hash> \
+    -context-before 200 -context-after 200
 ```
 
 ## Future Enhancements
