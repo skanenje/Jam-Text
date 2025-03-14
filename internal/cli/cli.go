@@ -276,7 +276,7 @@ func Run(args []string) error {
 			return fmt.Errorf("wordlist file must be specified")
 		}
 
-		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, logger, *verbose)
+		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, *verbose)
 		if err != nil {
 			return err
 		}
@@ -294,12 +294,6 @@ func Run(args []string) error {
 	return nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("JamText - A text indexing and similarity search tool")
@@ -395,7 +389,7 @@ type WordOccurrence struct {
 	}
 }
 
-func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, logger *log.Logger, verbose bool) (int, error) {
+func processModeration(inputPath, wordlistPath, modLevel string, contextSize int, verbose bool) (int, error) {
 	content, err := os.ReadFile(inputPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read input file: %w", err)
