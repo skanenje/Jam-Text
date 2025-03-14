@@ -14,6 +14,7 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Basic project structure
 - Hamming distance similarity comparison
 - Thread-safe random number generation
+- Content moderation with configurable word lists
 
 🚧 In Progress:
 - Index command implementation
@@ -57,6 +58,9 @@ jamtext -cmd index -i <input_file> -o <output_file>
 
 # Lookup similar text (in development)
 jamtext -cmd lookup -i <input_file> -o <output_file>
+
+# Moderate content for offensive language
+jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
 ```
 
 ## Building
@@ -124,6 +128,14 @@ const (
 - Efficient memory management
 - Thread-safe random number generation
 - Optimized vector operations
+
+### Moderation Features
+- Configurable word list support
+- Strict and lenient matching modes
+- Context-aware reporting
+- Word frequency analysis
+- Thread-safe processing
+- Detailed violation reports
 
 ## Documentation
 
