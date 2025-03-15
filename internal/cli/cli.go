@@ -305,13 +305,13 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  ./jamtext -c moderate -i <input_file.txt> -wordlist <moderation_wordlist.txt> -modlevel <moderation_level>")
-	fmt.Println("  ./jamtext -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
-	fmt.Println("  ./jamtext -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
-	fmt.Println("  ./jamtext -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
-	fmt.Println("  ./jamtext -c lookup -i <index_file.idx> -h <simhash_value>")
-	fmt.Println("  ./jamtext -c stats -i <index_file.idx>")
-	fmt.Println("  ./jamtext -c hash -i <input_file.txt>")
+	fmt.Println("  ./textindex -c moderate -i <input_file.txt> -wordlist <moderation_wordlist.txt> -level <moderation_level>")
+	fmt.Println("  ./textindex -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
+	fmt.Println("  ./textindex -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
+	fmt.Println("  ./textindex -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
+	fmt.Println("  ./textindex -c lookup -i <index_file.idx> -h <simhash_value>")
+	fmt.Println("  ./textindex -c stats -i <index_file.idx>")
+	fmt.Println("  ./textindex -c hash -i <input_file.txt>")
 }
 
 // Add this function to help verify matches
@@ -547,41 +547,6 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 	}
 
 	return matches, nil
-}
-
-func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
-	fmt.Printf("Looking up exact match for SimHash %x:\n\n", hash)
-	
-	// Only show exact matches (Hamming distance = 0)
-	exactMatches := 0
-	for simHash, positions := range matches {
-		if hash == simHash { // Only exact matches
-			for _, pos := range positions {
-				content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
-				if err != nil {
-					fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
-					continue
-				}
-				
-				// Create a preview (first 50 chars + "..." if longer)
-				preview := content
-				if len(preview) > 50 {
-					preview = preview[:50] + "..."
-				}
-				
-				fmt.Printf("Match #%d:\n", exactMatches+1)
-				fmt.Printf("Position: %d\n", pos)
-				fmt.Printf("Preview:\n---\n%s\n---\n\n", preview)
-				exactMatches++
-			}
-		}
-	}
-	
-	if exactMatches == 0 {
-		fmt.Printf("No exact matches found for hash %x\n", hash)
-	} else {
-		fmt.Printf("Found %d exact matches\n", exactMatches)
-	}
 }
 
 func truncateContext(text string, size int) string {
