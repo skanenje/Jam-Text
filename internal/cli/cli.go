@@ -132,14 +132,19 @@ func Run(args []string) error {
 
 		matches, err := idx.Lookup(hash)
 		if err != nil {
-			return err
+			return fmt.Errorf("lookup failed: %w", err)
 		}
-
 		if len(matches) == 0 {
-			return fmt.Errorf("no matches found for hash %x", hash)
+			fmt.Printf("No matches found for hash %x\n", hash)
+			return nil
 		}
 
-		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize, 100, 100)
+		fmt.Printf("Found matches for SimHash %x:\n\n", hash)
+		for _, pos := range matches {
+			if err := lookupAndShowPreview(idx.SourceFile, hash, pos, idx.ChunkSize); err != nil {
+				fmt.Printf("Warning: %v\n", err)
+			}
+		}
 
 		defer idx.Close()
 		return nil
@@ -287,8 +292,8 @@ func Run(args []string) error {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("JamText - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  textindex -c <command> [options]")
-	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("  jamtext -c <command> [options]")
+	fmt.Println("  jamtext -c <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index     - Create index from text file")
 	fmt.Println("  lookup    - Exact lookup by SimHash")
@@ -300,11 +305,13 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  ./textindex -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
-	fmt.Println("  ./textindex -c lookup -i <index_file.idx> -h <simhash_value>")
-	fmt.Println("  ./textindex -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
-	fmt.Println("  ./textindex -c hash -i <input_file.txt>")
-	fmt.Println("  ./textindex -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
+	fmt.Println("  ./jamtext -c moderate -i <input_file.txt> -wordlist <moderation_wordlist.txt> -modlevel <moderation_level>")
+	fmt.Println("  ./jamtext -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
+	fmt.Println("  ./jamtext -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
+	fmt.Println("  ./jamtext -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
+	fmt.Println("  ./jamtext -c lookup -i <index_file.idx> -h <simhash_value>")
+	fmt.Println("  ./jamtext -c stats -i <index_file.idx>")
+	fmt.Println("  ./jamtext -c hash -i <input_file.txt>")
 }
 
 // Add this function to help verify matches
@@ -542,62 +549,38 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 	return matches, nil
 }
 
-func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
-	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-
+func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
+	fmt.Printf("Looking up exact match for SimHash %x:\n\n", hash)
+	
+	// Only show exact matches (Hamming distance = 0)
+	exactMatches := 0
 	for simHash, positions := range matches {
-		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
-		for _, pos := range positions {
-			// Read the main chunk
-			content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
-			if err != nil {
-				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
-				continue
-			}
-			fmt.Printf("Content: %s\n", content)
-
-			// Read context before if requested
-			var before string
-			if contextBefore > 0 {
-				// Calculate safe position for reading before context
-				beforePos := pos - int64(contextBefore)
-				if beforePos < 0 {
-					// Adjust context size if we're near the start of file
-					beforePos = 0
-					contextBefore = int(pos) // Use whatever space is available
+		if hash == simHash { // Only exact matches
+			for _, pos := range positions {
+				content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
+				if err != nil {
+					fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
+					continue
 				}
-
-				if contextBefore > 0 { // Only read if we have space for context
-					beforeContent, err := chunk.ReadChunk(sourceFile, beforePos, contextBefore)
-					if err == nil {
-						before = beforeContent
-					}
+				
+				// Create a preview (first 50 chars + "..." if longer)
+				preview := content
+				if len(preview) > 50 {
+					preview = preview[:50] + "..."
 				}
+				
+				fmt.Printf("Match #%d:\n", exactMatches+1)
+				fmt.Printf("Position: %d\n", pos)
+				fmt.Printf("Preview:\n---\n%s\n---\n\n", preview)
+				exactMatches++
 			}
-
-			// Read context after if requested
-			var after string
-			if contextAfter > 0 {
-				afterPos := pos + int64(chunkSize)
-				// Try to read after context
-				afterContent, err := chunk.ReadChunk(sourceFile, afterPos, contextAfter)
-				if err == nil { // No error means we successfully read after context
-					after = afterContent
-				} else if err == io.EOF {
-					// We hit the end of file, which is fine - just use whatever we got
-					after = "" // or afterContent if it contains partial data
-				}
-			}
-
-			fmt.Printf("Match at position %d:\n", pos)
-			if contextBefore > 0 && len(before) > 0 {
-				fmt.Printf("Before: %s\n", before)
-			}
-			if contextAfter > 0 && len(after) > 0 {
-				fmt.Printf("After:  %s\n", after)
-			}
-			fmt.Println("---")
 		}
+	}
+	
+	if exactMatches == 0 {
+		fmt.Printf("No exact matches found for hash %x\n", hash)
+	} else {
+		fmt.Printf("Found %d exact matches\n", exactMatches)
 	}
 }
 
@@ -606,4 +589,22 @@ func truncateContext(text string, size int) string {
 		return text
 	}
 	return text[:size/2] + "..." + text[len(text)-size/2:]
+}
+
+func lookupAndShowPreview(sourceFile string, hash simhash.SimHash, pos int64, chunkSize int) error {
+	content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
+	if err != nil {
+		return fmt.Errorf("failed to read chunk at position %d: %w", pos, err)
+	}
+
+	// Create a preview (first 50 chars + "..." if longer)
+	preview := content
+	if len(preview) > 50 {
+		preview = preview[:50] + "..."
+	}
+
+	fmt.Printf("Hash: %x\n", hash)
+	fmt.Printf("Position: %d\n", pos)
+	fmt.Printf("Preview:\n---\n%s\n---\n", preview)
+	return nil
 }
