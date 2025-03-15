@@ -34,7 +34,7 @@ Jamtext is a powerful text analysis tool designed for content creators, research
 
 ## Usage
 ```bash
-textindex -c <command> [options]
+./textindex -c <command> [options]
 
 Options:
   -i string      Input file path
@@ -50,7 +50,7 @@ Options:
 ```bash
 # Create searchable index from a book
 # Index with custom overlap for better matching
-textindex -c index -i content.txt -o content.idx -s 2048 -overlap 512
+./textindex -c index -i content.txt -o content.idx -s 2048 -overlap 512
 ```
 
 ### Similarity Detection
@@ -59,19 +59,19 @@ textindex -c index -i content.txt -o content.idx -s 2048 -overlap 512
 HASH=$(textindex -c hash -i article.txt)
 
 # Find similar content
-textindex -c fuzzy -i database.idx -h $HASH -threshold 5
+./textindex -c fuzzy -i database.idx -h $HASH -threshold 5
 
 # Direct document comparison
-textindex -c compare -i original.txt -i2 submission.txt -o report.txt
+./textindex -c compare -i original.txt -i2 submission.txt -o report.txt
 ```
 
 ### Content Moderation
 ```bash
 # Check content against moderation rules
-textindex -c moderate -i submission.txt -wordlist forbidden.txt -level strict
+./textindex -c moderate -i submission.txt -wordlist forbidden.txt -level strict
 
 # Lenient moderation with context
-textindex  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
+./textindex  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
 ```
 
 ## Performance Tips
@@ -85,14 +85,14 @@ textindex  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 1
 # Git pre-commit hook
 #!/bin/bash
 HASH=$(textindex -c hash -i "$1")
-textindex -c fuzzy -i repository.idx -h $HASH -threshold 3
+./textindex -c fuzzy -i repository.idx -h $HASH -threshold 3
 
 # CI/CD Pipeline
-textindex -c moderate -i release-notes.txt -wordlist company-rules.txt || exit 1
+./textindex -c moderate -i release-notes.txt -wordlist company-rules.txt || exit 1
 
 # Batch Processing
 for file in content/*.txt; do
-    textindex -c index -i "$file" -o "indexes/$(basename "$file").idx"
+./textindex -c index -i "$file" -o "indexes/$(basename "$file").idx"
 done
 ```
 
