@@ -135,20 +135,15 @@ func Run(args []string) error {
 			return fmt.Errorf("lookup failed: %w", err)
 		}
 		if len(matches) == 0 {
-			fmt.Println("No matches found")
+			fmt.Printf("No matches found for hash %x\n", hash)
 			return nil
 		}
 
 		fmt.Printf("Found matches for SimHash %x:\n\n", hash)
 		for _, pos := range matches {
-			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize) // Changed from *input to idx.SourceFile
-			if err != nil {
-				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
-				continue
+			if err := lookupAndShowPreview(idx.SourceFile, hash, pos, idx.ChunkSize); err != nil {
+				fmt.Printf("Warning: %v\n", err)
 			}
-			
-			fmt.Printf("\nHash: %x (Hamming distance: 0)\n", hash)
-			fmt.Printf("Content at position %d:\n---\n%s\n---\n", pos, content)
 		}
 
 		defer idx.Close()
@@ -592,4 +587,22 @@ func truncateContext(text string, size int) string {
 		return text
 	}
 	return text[:size/2] + "..." + text[len(text)-size/2:]
+}
+
+func lookupAndShowPreview(sourceFile string, hash simhash.SimHash, pos int64, chunkSize int) error {
+	content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
+	if err != nil {
+		return fmt.Errorf("failed to read chunk at position %d: %w", pos, err)
+	}
+
+	// Create a preview (first 50 chars + "..." if longer)
+	preview := content
+	if len(preview) > 50 {
+		preview = preview[:50] + "..."
+	}
+
+	fmt.Printf("Hash: %x\n", hash)
+	fmt.Printf("Position: %d\n", pos)
+	fmt.Printf("Preview:\n---\n%s\n---\n", preview)
+	return nil
 }
