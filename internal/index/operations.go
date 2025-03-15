@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"jamtext/internal/simhash"
+
 	"github.com/edsrzf/mmap-go"
 )
 
@@ -39,6 +39,9 @@ func New(sourceFile string, chunkSize int, hyperplanes [][]float64, indexDir str
 			ShardID:      0,
 			LastAccess:   time.Now(),
 		}},
+		shardMap:     make(map[simhash.SimHash]int),
+		cachedShards: make(map[int]*IndexShard),
+		cacheSize:    5, // Cache up to 5 shards in memory
 	}
 }
 
@@ -110,23 +113,23 @@ func (idx *Index) loadShard(shardID int) (*IndexShard, error) {
 // loadShardMMap loads a shard from disk using memory-mapped I/O
 func (idx *Index) loadShardMMap(shardID int) (*IndexShard, error) {
 	filename := filepath.Join(idx.IndexDir, fmt.Sprintf("%s.%d", idx.ShardFilename, shardID))
-	
+
 	file, err := os.OpenFile(filename, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	
+
 	mmapData, err := mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var shard IndexShard
 	if err := gob.NewDecoder(bytes.NewReader(mmapData)).Decode(&shard); err != nil {
 		return nil, err
 	}
-	
+
 	return &shard, nil
 }
 
@@ -148,39 +151,33 @@ func (idx *Index) rotateShard() error {
 
 // Lookup finds positions for a SimHash
 func (idx *Index) Lookup(hash simhash.SimHash) ([]int64, error) {
-	var positions []int64
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	var errs []error
-	
-	for i := range idx.Shards {
-		wg.Add(1)
-		go func(shardID int) {
-			defer wg.Done()
-			
-			shard, err := idx.loadShard(shardID)
-			if err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("shard %d: %w", shardID, err))
-				mu.Unlock()
-				return
-			}
-			
-			if pos, ok := shard.SimHashToPos[hash]; ok {
-				mu.Lock()
-				positions = append(positions, pos...)
-				mu.Unlock()
-			}
-		}(i)
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	// Check if we know which shard contains this hash
+	if shardID, exists := idx.shardMap[hash]; exists {
+		// Check cache first
+		if shard, ok := idx.cachedShards[shardID]; ok {
+			return shard.SimHashToPos[hash], nil
+		}
+
+		// Load specific shard directly
+		shard, err := idx.loadShard(shardID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Cache the shard for future lookups
+		idx.cacheShardLRU(shardID, shard)
+		return shard.SimHashToPos[hash], nil
 	}
-	
-	wg.Wait()
-	
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("lookup errors: %v", errs)
+
+	// Fallback to checking active shard only
+	if positions, ok := idx.Shards[idx.ActiveShard].SimHashToPos[hash]; ok {
+		return positions, nil
 	}
-	
-	return positions, nil
+
+	return nil, nil
 }
 
 // Stats returns statistics about the index
@@ -277,4 +274,20 @@ func (idx *Index) FuzzyLookup(hash simhash.SimHash, threshold int) (map[simhash.
 // LSHBucket represents a collection of similar hashes
 type LSHBucket struct {
 	hashes map[simhash.SimHash]struct{}
+}
+
+func (idx *Index) cacheShardLRU(shardID int, shard *IndexShard) {
+	if len(idx.cachedShards) >= idx.cacheSize {
+		// Evict least recently used shard
+		var oldestTime time.Time
+		var oldestID int
+		for id, s := range idx.cachedShards {
+			if s.LastAccess.Before(oldestTime) {
+				oldestTime = s.LastAccess
+				oldestID = id
+			}
+		}
+		delete(idx.cachedShards, oldestID)
+	}
+	idx.cachedShards[shardID] = shard
 }
