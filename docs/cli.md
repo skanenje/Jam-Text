@@ -76,6 +76,97 @@ jamtext -c moderate -i submission.txt -wordlist forbidden.txt -level strict
 jamtext -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
 ```
 
+## Content Moderation
+The `moderate` command allows you to screen content against predefined word lists and rules. It supports two moderation modes: strict and lenient.
+
+### Moderation Options
+```bash
+jamtext -c moderate [options]
+
+Options:
+  -i string        Input file to moderate
+  -wordlist string Path to wordlist file
+  -level string    Moderation level (strict|lenient) (default: strict)
+  -context int     Context size in characters (default: 50)
+```
+
+### Wordlist Format
+The wordlist file should contain one entry per line in the format:
+```
+word:severity
+```
+Where severity can be:
+- high: Always flag
+- medium: Flag in strict mode
+- low: Only flag in specific contexts
+
+Example wordlist:
+```
+offensive_word1:high
+questionable_word2:medium
+context_dependent_word3:low
+```
+
+### Moderation Levels
+
+#### Strict Mode
+- Matches whole words only
+- Case-insensitive matching
+- Flags all severity levels
+- No context consideration
+```bash
+jamtext -c moderate -i content.txt -wordlist rules.txt -level strict
+```
+
+#### Lenient Mode
+- Considers word context
+- Ignores low-severity matches
+- Provides surrounding context
+- Allows partial matches
+```bash
+jamtext -c moderate -i content.txt -wordlist rules.txt -level lenient -context 100
+```
+
+### Integration Examples
+
+#### CI/CD Pipeline
+```bash
+#!/bin/bash
+# Fail build if moderation finds issues
+jamtext -c moderate -i release-notes.txt -wordlist company-rules.txt || exit 1
+```
+
+#### Batch Processing
+```bash
+#!/bin/bash
+# Process multiple files
+for file in content/*.txt; do
+    echo "Checking $file..."
+    jamtext -c moderate -i "$file" -wordlist rules.txt -level strict
+done
+```
+
+#### Real-time Moderation
+```bash
+#!/bin/bash
+# Monitor new content
+inotifywait -m /content/incoming -e create |
+while read path action file; do
+    jamtext -c moderate -i "$path/$file" -wordlist rules.txt -level strict
+done
+```
+
+### Exit Codes
+- 0: No issues found
+- 1: Moderation issues detected
+- 2: Processing error
+
+### Performance Considerations
+- Use strict mode for smaller documents
+- Use lenient mode with larger context for longer content
+- Batch process multiple files for better performance
+- Consider using parallel processing for large datasets
+
 ## Performance Tips
 - Use larger chunk sizes (8192+) for better performance on large documents
 - Reduce overlap for faster indexing at the cost of accuracy
