@@ -170,5 +170,34 @@ done
 ## Contributing
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Testing
+Run the test suite using the following commands:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests for a specific package
+go test ./internal/cli/...
+go test ./internal/simhash/...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+## Contributors
+- [Elijah Gathanga](https://github.com/contributor1)
+- [Kevin Wasonga](https://github.com/contributor2)
+- [Swabri Kanenje](https://github.com/contributor3)
+- [Jerome Otieno](https://github.com/contributor4) 
+- [Godwin Ouma](https://github.com/oumaoumag) 
+
 ## License
 MIT License - see [LICENSE](LICENSE) for details.
