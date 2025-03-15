@@ -315,8 +315,6 @@ func TestRunLookupCommand(t *testing.T) {
 func TestRunFuzzyCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath, _ := createValidIndex(t, tmpDir)
-	// Use inputPath for fuzzy search test logic...
-	// No hash needed, so ignore it with _
 	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
 		t.Errorf("Index file does not exist: %v", err)
 	}
