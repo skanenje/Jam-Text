@@ -284,7 +284,7 @@ func Run(args []string) error {
 	default:
 		// TODO: Setup chunk options
 		printUsage(fs)
-		return fmt.Errorf("unknown command: %s", *cmd)
+		return nil
 	}
 	return nil
 }
