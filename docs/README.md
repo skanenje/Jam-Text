@@ -17,6 +17,12 @@
   - Context-aware processing with overlap support
   - Multi-format support (TXT, PDF, DOCX)
   - Parallel processing with worker pools
+- [Testing Guide](testing.md) - Comprehensive testing documentation
+  - Test structure and organization
+  - Testing techniques and patterns
+  - Package-specific test documentation
+  - Best practices and examples
+  - CI/CD testing guidelines
 
 ## Contributing
 - [Contributing Guide](../CONTRIBUTING.md) - Guidelines for contributors
