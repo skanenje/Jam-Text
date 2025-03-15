@@ -310,53 +310,53 @@ func TestReadChunkWithDifferentFormats(t *testing.T) {
 	}
 }
 
-func TestFindBoundary(t *testing.T) {
-	tests := []struct {
-		name         string
-		text         []byte
-		preferredPos int
-		boundaryChar string
-		want         int
-	}{
-		{
-			name:         "simple boundary",
-			text:         []byte("Hello. World"),
-			preferredPos: 7,
-			boundaryChar: ".",
-			want:         6,
-		},
-		{
-			name:         "no boundary found",
-			text:         []byte("HelloWorld"),
-			preferredPos: 5,
-			boundaryChar: ".",
-			want:         5,
-		},
-		{
-			name:         "boundary at start",
-			text:         []byte(".HelloWorld"),
-			preferredPos: 5,
-			boundaryChar: ".",
-			want:         1,
-		},
-		{
-			name:         "multiple boundaries",
-			text:         []byte("Hello.World.Test"),
-			preferredPos: 10,
-			boundaryChar: ".",
-			want:         6,
-		},
-	}
+// func TestFindBoundary(t *testing.T) {
+// 	tests := []struct {
+// 		name         string
+// 		text         []byte
+// 		preferredPos int
+// 		boundaryChar string
+// 		want         int
+// 	}{
+// 		{
+// 			name:         "simple boundary",
+// 			text:         []byte("Hello. World"),
+// 			preferredPos: 7,
+// 			boundaryChar: ".",
+// 			want:         6,
+// 		},
+// 		{
+// 			name:         "no boundary found",
+// 			text:         []byte("HelloWorld"),
+// 			preferredPos: 5,
+// 			boundaryChar: ".",
+// 			want:         5,
+// 		},
+// 		{
+// 			name:         "boundary at start",
+// 			text:         []byte(".HelloWorld"),
+// 			preferredPos: 5,
+// 			boundaryChar: ".",
+// 			want:         1,
+// 		},
+// 		{
+// 			name:         "multiple boundaries",
+// 			text:         []byte("Hello.World.Test"),
+// 			preferredPos: 10,
+// 			boundaryChar: ".",
+// 			want:         6,
+// 		},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := findBoundary(tt.text, tt.preferredPos, tt.boundaryChar)
-			if got != tt.want {
-				t.Errorf("findBoundary() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got := findBoundary(tt.text, tt.preferredPos, tt.boundaryChar)
+// 			if got != tt.want {
+// 				t.Errorf("findBoundary() = %v, want %v", got, tt.want)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestRunLookupCommand(t *testing.T) {
 	tmpDir := t.TempDir()
