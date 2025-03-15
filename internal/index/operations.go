@@ -1,13 +1,16 @@
 package index
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"jamtext/internal/simhash"
+	"github.com/edsrzf/mmap-go"
 )
 
 const (
@@ -104,6 +107,29 @@ func (idx *Index) loadShard(shardID int) (*IndexShard, error) {
 	}, nil
 }
 
+// loadShardMMap loads a shard from disk using memory-mapped I/O
+func (idx *Index) loadShardMMap(shardID int) (*IndexShard, error) {
+	filename := filepath.Join(idx.IndexDir, fmt.Sprintf("%s.%d", idx.ShardFilename, shardID))
+	
+	file, err := os.OpenFile(filename, os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	
+	mmapData, err := mmap.Map(file, mmap.RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	
+	var shard IndexShard
+	if err := gob.NewDecoder(bytes.NewReader(mmapData)).Decode(&shard); err != nil {
+		return nil, err
+	}
+	
+	return &shard, nil
+}
+
 // rotateShard persists the current shard and creates a new one
 func (idx *Index) rotateShard() error {
 	if err := idx.saveShard(idx.Shards[idx.ActiveShard]); err != nil {
@@ -122,38 +148,38 @@ func (idx *Index) rotateShard() error {
 
 // Lookup finds positions for a SimHash
 func (idx *Index) Lookup(hash simhash.SimHash) ([]int64, error) {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-
 	var positions []int64
-
-	// Check active shard first
-	if pos, ok := idx.Shards[idx.ActiveShard].SimHashToPos[hash]; ok {
-		positions = append(positions, pos...)
-	}
-
-	// Check other shards
-	for i := 0; i < len(idx.Shards); i++ {
-		if i == idx.ActiveShard {
-			continue
-		}
-
-		shard := idx.Shards[i]
-		if shard == nil {
-			// Load shard from disk
-			loaded, err := idx.loadShard(i)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	var errs []error
+	
+	for i := range idx.Shards {
+		wg.Add(1)
+		go func(shardID int) {
+			defer wg.Done()
+			
+			shard, err := idx.loadShard(shardID)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load shard %d: %w", i, err)
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("shard %d: %w", shardID, err))
+				mu.Unlock()
+				return
 			}
-			idx.Shards[i] = loaded
-			shard = loaded
-		}
-
-		if pos, ok := shard.SimHashToPos[hash]; ok {
-			positions = append(positions, pos...)
-		}
+			
+			if pos, ok := shard.SimHashToPos[hash]; ok {
+				mu.Lock()
+				positions = append(positions, pos...)
+				mu.Unlock()
+			}
+		}(i)
 	}
-
+	
+	wg.Wait()
+	
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("lookup errors: %v", errs)
+	}
+	
 	return positions, nil
 }
 
