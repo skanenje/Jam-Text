@@ -33,39 +33,39 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 <<<<<<< HEAD
 ```bash
 # index the desired corpus of data
-./jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
+./textindex -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
 
 # hash the particular document you want
 HASH=$(./jamtext -c hash -i testPlagurism.txt)
 
 # use the hash for lookup with fuzzy search
-./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+./textindex -c fuzzy -i testdata.dat -h $HASH -threshold 5
 ```
 
 ## Similarity Search
 ```bash
 # compare two text documents to find if they are similar
-./jamtext -c compare -i doc1.txt -i2 doc2.txt -o report.txt
+./textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt
 
 ```
 ## Moderation for offensive language
 ```bash
-jamtext -cmd index -i <input_file> -o <output_file>
+./textindex -cmd index -i <input_file> -o <output_file>
 
-jamtext -cmd lookup -i <input_file> -o <output_file>
+./textindex -cmd lookup -i <input_file> -o <output_file>
 
 # Moderate content for offensive language
-jamtext -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
+./textindex -cmd moderate -i <input_file> [-wordlist words.txt] [-level strict|lenient] [-context 50] [-v]
 =======
 ```bash
 # index the desired corpus of data
-./jamtext -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
+./textindex -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
 
 # hash the particular document you want
 HASH=$(./jamtext -c hash -i testPlagurism.txt)
 
 # use the hash for lookup with fuzzy search
-./jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+./textindex -c fuzzy -i testdata.dat -h $HASH -threshold 5
 >>>>>>> 7cd1fb4c90fcb1d20bb65ab9556fd6dff68bbb37
 ```
 
