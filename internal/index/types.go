@@ -26,6 +26,9 @@ type Index struct {
 	IndexDir      string
 	mu            sync.RWMutex
 	ShardFilename string
+	cachedShards  map[int]*IndexShard           // Cache for frequently accessed shards
+	cacheSize     int                           // Maximum number of shards to keep in memory
+	shardMap      map[simhash.SimHash]int       // Maps hashes to their shard IDs
 }
 
 // IndexStats contains statistics about the index
