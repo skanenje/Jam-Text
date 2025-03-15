@@ -15,7 +15,6 @@ func captureOutput(f func() error) (string, error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Run the function
 	err := f()
 
 	// Restore original stdout
@@ -53,7 +52,6 @@ func TestRunValidation(t *testing.T) {
 			wantErr: true,
 			errMsg:  "input and output file paths must be specified",
 		},
-		// Removed duplicate test case for "index without output"
 	}
 
 	for _, tt := range tests {
