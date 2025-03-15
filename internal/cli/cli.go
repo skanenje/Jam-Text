@@ -74,6 +74,17 @@ func Run(args []string) error {
 			return fmt.Errorf("input and output file paths must be specified")
 		}
 
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
+		// Check if the chunk size is valid
+		if *size != 1024 && *size != 2048 && *size != 4096 {
+			fmt.Printf("Invalid chunk size specified: %d. Setting chunk size to 4096\n", *size)
+			*size = 4096
+		}
+
 		// Generate hyperplanes first
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
@@ -120,6 +131,11 @@ func Run(args []string) error {
 			return fmt.Errorf("input and hash must be specified")
 		}
 
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
 		idx, err := index.Load(*input)
 		if err != nil {
 			return err
@@ -154,6 +170,11 @@ func Run(args []string) error {
 			return fmt.Errorf("input file must be specified")
 		}
 
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
 		idx, err := index.Load(*input)
 		if err != nil {
 			return err
@@ -174,6 +195,11 @@ func Run(args []string) error {
 	case "fuzzy":
 		if *input == "" || *hashStr == "" {
 			return fmt.Errorf("input and hash must be specified")
+		}
+
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
 		}
 
 		idx, err := index.Load(*input)
@@ -207,6 +233,11 @@ func Run(args []string) error {
 			return fmt.Errorf("input file must be specified")
 		}
 
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
 		// Generate hyperplanes
 		hyperplanes := simhash.GenerateHyperplanes(simhash.VectorDimensions, simhash.NumHyperplanes)
 
@@ -228,6 +259,16 @@ func Run(args []string) error {
 	case "compare":
 		if *input == "" || *secondInput == "" {
 			return fmt.Errorf("first input file must be specified")
+		}
+
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
+		// Check if the second input file exists
+		if _, err := os.Stat(*secondInput); os.IsNotExist(err) {
+			return fmt.Errorf("second input file '%s' does not exist", *secondInput)
 		}
 
 		// secondInput := fs.String("i2", "", "Second input file path")
@@ -269,6 +310,16 @@ func Run(args []string) error {
 		}
 		if *wordlistPath == "" {
 			return fmt.Errorf("wordlist file must be specified")
+		}
+
+		// Check if the input file exists
+		if _, err := os.Stat(*input); os.IsNotExist(err) {
+			return fmt.Errorf("input file '%s' does not exist", *input)
+		}
+
+		// Check if the wordlist file exists
+		if _, err := os.Stat(*wordlistPath); os.IsNotExist(err) {
+			return fmt.Errorf("wordlist file '%s' does not exist", *wordlistPath)
 		}
 
 		matches, err := processModeration(*input, *wordlistPath, *modLevel, *contextSize, *verbose)

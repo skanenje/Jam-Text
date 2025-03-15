@@ -17,23 +17,91 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Memory-efficient operations through disk-based sharding
 
 ## Quick Start
-```bash
-# Build a executable of the program
-make
 
-# Index a document
-./textindex -c index -i testdata.txt -o testdata.dat -s 1024
-
-# Generate document hash
-HASH=$(textindex -c hash -i testPlagiarism.txt)
-
-# Search with fuzzy matching
-./textindex -c fuzzy -i testdata.dat -h $HASH -threshold 5
-
-# Find known content
-KNOWN_HASH=$(textindex -c hash -i known_content.txt)
-./textindex -c lookup -i database.idx -h $KNOWN_HASH
+### Step 1 Extraction
 ```
+Extract the Jam-Text-main.zip
+```
+### Step 2 Opening the folder
+```
+Open Jam-Text-main in terminal
+Rightclick and open in terminal
+```
+### Step 3 Build Executable
+```bash
+#run make to build the executable file of the program
+make
+```
+### Step 4 Test the program
+### Indexing a text file
+The **index** command processes a text file and creates an in memory index of simhash values
+***Syntax** <br>
+```bash
+./textindex -c index -i <input_file.txt> -s <chunk_size> -o <index_file.idx> [OPTIONAL= -log index.log]
+```
+**-c index** - Specifies that the command is for indexing the file <br>
+**-i <input_file.txt>** - Path to the input text files <br>
+**-s <chunk_size>** - Size of each chunk in bytes (default:4096 bytes) <br>
+**-o <index_file.idx>** - Path to save the generated index file <br>
+**-log <index.logs> - Path to the logs file to be able to test the hashes <br>
+#### Example Usage
+```
+./textindex -c index -i large_text.txt -s 4096 -o index.idx -log index.log
+```
+### Looking up a chunk by Simhash
+The **lookup** command retrieves the position of a chunk in a file based on its SimHash fingerprint
+**Syntax** <br>
+```bash
+./textindex -c lookup -i <index.file.idx> -h <simhash_value>
+```
+**-c lookup** - Specifies that the command is for looking up a chunk <br>
+**-i <index_file.idx>** - Path to the previously generated index file <br>
+**-s <simhash_value>** - Simhash value of the chunk to search for <br>
+#### Example Usage
+```
+./textindex -c lookup -i index_file.idx -h 3eff1b2c98a6
+```
+### Compare two documents similarity
+The command **compare** compares two text documents and returns how much similar the documents are in percentage.
+**Syntax** <br>
+```bash
+# compare two text documents to find if they are similar
+./textindex -c compare -i doc1.txt -i2 doc2.txt -o report.txt
+```
+**-c compare** - Specifies that the command is for comparing two text documents <br>
+**-i <input_file>** - Path to the first input document <br>
+**-i2 <input_file2>** - Path to the second input document <br>
+**-0 <report_file>** - Path to the report document that show the output. (OPTIONAl) <br>
+#### Example Usage
+```
+./textindex -c compare -i file1.txt -i2 file2.txt -o report.txt
+```
+### Duplicate Detection
+**1. index the desired corpus of data** <br>
+**Syntax** <br>
+```bash
+./textindex -c index -i testdata.txt -o testdata.dat -s 1024 -overlap 256
+```
+**-c index** - Specifies that the command is for indexing the file <br>
+**-i testdata.txt** - specifies path to text file <br>
+**-o testdata.idx** -  Path to the previously generated index file <br>
+**-s 1024** - Specifies the chunk size <br>
+**overlap 256** - Specifies the amount of words to add at the beginning of the chunk and at the end <br>
+
+**2.  hash the particular document you want** <br>
+**Syntax** <br>
+```
+HASH=$(./textindex -c hash -i testPlagurism.txt)
+```
+**3. Use the hash for the lookup** <br>
+**Syntax** <br>
+```bash
+./textindex -c fuzzy -i testdata.idx -h $HASH -threshold 5
+```
+**-c fuzzy** - This command specifies that you are looking for exact matches <br>
+**-i testdata.idx** - path to the hash file generated after hashing a document <br>
+**-h $HASH - specifies the the hash <br>
+**-threshold -5** - specifies the limiting values <br> 
 
 ## Common Use Cases
 - **Content Finding**: Search for known text across large document collections
