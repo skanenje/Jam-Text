@@ -17,22 +17,49 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Memory-efficient operations through disk-based sharding
 
 ## Quick Start
+
+### Step 1 Extraction
+```
+Extract the Jam-Text-main.zip
+```
+### Step 2 Opening the folder
+```
+Open Jam-Text-main in terminal
+Rightclick and open in terminal
+```
+### Step 3 Build Executable
 ```bash
-# Build a executable of the program
+#run make to build the executable file of the program
 make
-
-# Index a document
-./textindex -c index -i testdata.txt -o testdata.dat -s 1024
-
-# Generate document hash
-HASH=$(textindex -c hash -i testPlagiarism.txt)
-
-# Search with fuzzy matching
-./textindex -c fuzzy -i testdata.dat -h $HASH -threshold 5
-
-# Find known content
-KNOWN_HASH=$(textindex -c hash -i known_content.txt)
-./textindex -c lookup -i database.idx -h $KNOWN_HASH
+```
+### Step 4 Test the program
+### Indexing a text file
+The **index** command processes a text file and creates an in memory index of simhash values
+***Syntax**
+```bash
+./textindex -c index -i <input_file.txt> -s <chunk_size> -o <index_file.idx> [OPTIONAL= -log index.log]
+```
+**-c index** - Specifies that the command is for indexing the file
+**-i <input_file.txt>** - Path to the input text files
+**-s <chunk_size>** - Size of each chunk in bytes (default:4096 bytes)
+**-o <index_file.idx>** - Path to save the generated index file
+**-log <index.logs> - Path to the logs file to be able to test the hashes 
+#### Example Usage
+```
+./textindex -c index -i large_text.txt -s 4096 -o index.idx -log index.log
+```
+### Looking up a chunk by Simhash
+The **lookup** command retrieves the position of a chunk in a file based on its SimHash fingerprint
+**Syntax**
+```bash
+./textindex -c lookup -i <index.file.idx> -h <simhash_value>
+```
+**-c lookup** - Specifies that the command is for looking up a chunk
+**-i <index_file.idx>** - Path to the previously generated index file
+**-s <simhash_value>** - Simhash value of the chunk to search for
+#### Example Usage
+```
+./textindex -c lookup -i index_file.idx -h 3eff1b2c98a6
 ```
 
 ## Common Use Cases
