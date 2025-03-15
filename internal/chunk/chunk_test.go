@@ -169,87 +169,55 @@ func TestWorkerPoolEdgeCases(t *testing.T) {
 	}
 }
 
-// func TestNewChunk(t *testing.T) {
-// 	tests := []struct {
-// 		name        string
-// 		content     string
-// 		startOffset int64
-// 		wantLength  int
-// 	}{
-// 		{
-// 			name:        "empty content",
-// 			content:     "",
-// 			startOffset: 0,
-// 			wantLength:  0,
-// 		},
-// 		{
-// 			name:        "normal content",
-// 			content:     "test content",
-// 			startOffset: 100,
-// 			wantLength:  11,
-// 		},
-// 		{
-// 			name:        "content with special chars",
-// 			content:     "test\ncontent\t中文",
-// 			startOffset: 50,
-// 			wantLength:  17, // Corrected from 14 to 17 (actual byte length)
-// 		},
-// 	}
+func TestNewChunk(t *testing.T) {
+	tests := []struct {
+		name        string
+		content     string
+		startOffset int64
+		wantLength  int
+	}{
+		{
+			name:        "empty content",
+			content:     "",
+			startOffset: 0,
+			wantLength:  0,
+		},
+		{
+			name:        "normal content",
+			content:     "test content",
+			startOffset: 100,
+			wantLength:  11,
+		},
+		{
+			name:        "content with special chars",
+			content:     "test\ncontent\t中文",
+			startOffset: 50,
+			wantLength:  17, // Corrected from 14 to 17 (actual byte length)
+		},
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			chunk := NewChunk(tt.content, tt.startOffset)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chunk := NewChunk(tt.content, tt.startOffset)
 
-// 			if chunk.Content != tt.content {
-// 				t.Errorf("Content = %v, want %v", chunk.Content, tt.content)
-// 			}
-// 			if chunk.StartOffset != tt.startOffset {
-// 				t.Errorf("StartOffset = %v, want %v", chunk.StartOffset, tt.startOffset)
-// 			}
-// 			if chunk.Length != tt.wantLength {
-// 				t.Errorf("Length = %v, want %v", chunk.Length, tt.wantLength)
-// 			}
-// 			if !chunk.IsComplete {
-// 				t.Error("IsComplete = false, want true")
-// 			}
-// 			if chunk.Metadata == nil {
-// 				t.Error("Metadata is nil, want initialized map")
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestWorkerPoolClose(t *testing.T) {
-// 	pool := NewWorkerPool(1)
-// 	var wg sync.WaitGroup
-// 	executed := make(chan bool, 1)
-
-// 	// Submit a task that sleeps to ensure pool is busy
-// 	wg.Add(1)
-// 	pool.Submit(func() {
-// 		defer wg.Done()
-// 		time.Sleep(50 * time.Millisecond)
-// 	})
-
-// 	// Close the pool
-// 	pool.Close()
-
-// 	// Submit a task after closing
-// 	pool.Submit(func() {
-// 		executed <- true
-// 	})
-
-// 	// Wait for the first task to complete
-// 	wg.Wait()
-
-// 	// Check if any task was executed after closure
-// 	select {
-// 	case <-executed:
-// 		t.Error("Task submitted after pool closure was executed")
-// 	case <-time.After(10 * time.Millisecond):
-// 		// Expected behavior: no execution after closure
-// 	}
-// }
+			if chunk.Content != tt.content {
+				t.Errorf("Content = %v, want %v", chunk.Content, tt.content)
+			}
+			if chunk.StartOffset != tt.startOffset {
+				t.Errorf("StartOffset = %v, want %v", chunk.StartOffset, tt.startOffset)
+			}
+			if chunk.Length != tt.wantLength {
+				t.Errorf("Length = %v, want %v", chunk.Length, tt.wantLength)
+			}
+			if !chunk.IsComplete {
+				t.Error("IsComplete = false, want true")
+			}
+			if chunk.Metadata == nil {
+				t.Error("Metadata is nil, want initialized map")
+			}
+		})
+	}
+}
 
 func TestChunkWithMetadata(t *testing.T) {
 	chunk := NewChunk("test", 0)
@@ -310,54 +278,6 @@ func TestReadChunkWithDifferentFormats(t *testing.T) {
 	}
 }
 
-// func TestFindBoundary(t *testing.T) {
-// 	tests := []struct {
-// 		name         string
-// 		text         []byte
-// 		preferredPos int
-// 		boundaryChar string
-// 		want         int
-// 	}{
-// 		{
-// 			name:         "simple boundary",
-// 			text:         []byte("Hello. World"),
-// 			preferredPos: 7,
-// 			boundaryChar: ".",
-// 			want:         6,
-// 		},
-// 		{
-// 			name:         "no boundary found",
-// 			text:         []byte("HelloWorld"),
-// 			preferredPos: 5,
-// 			boundaryChar: ".",
-// 			want:         5,
-// 		},
-// 		{
-// 			name:         "boundary at start",
-// 			text:         []byte(".HelloWorld"),
-// 			preferredPos: 5,
-// 			boundaryChar: ".",
-// 			want:         1,
-// 		},
-// 		{
-// 			name:         "multiple boundaries",
-// 			text:         []byte("Hello.World.Test"),
-// 			preferredPos: 10,
-// 			boundaryChar: ".",
-// 			want:         6,
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			got := findBoundary(tt.text, tt.preferredPos, tt.boundaryChar)
-// 			if got != tt.want {
-// 				t.Errorf("findBoundary() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
-
 func TestRunLookupCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath, validHash := createValidIndex(t, tmpDir)
@@ -405,8 +325,6 @@ func TestRunFuzzyCommand(t *testing.T) {
 func TestRunStatsCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath, _ := createValidIndex(t, tmpDir)
-	// Use inputPath for stats test logic...
-	// No hash needed, so ignore it with _
 	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
 		t.Errorf("Index file does not exist: %v", err)
 	}
