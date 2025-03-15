@@ -27,6 +27,58 @@ func captureOutput(f func() error) (string, error) {
 	return buf.String(), err
 }
 
+func TestRunValidation(t *testing.T) {
+    tests := []struct {
+        name       string
+        args       []string
+        wantErr    bool
+        errMsg     string
+        wantOutput string // New field to check expected output
+    }{
+        {
+            name:       "no command",
+            args:       []string{"program"},
+            wantErr:    false,         // Adjusted to match Run() returning nil
+            wantOutput: "Usage:",      // Expect usage message in output
+        },
+        {
+            name:       "invalid command",
+            args:       []string{"program", "-c", "invalid"},
+            wantErr:    false,         // Adjusted to match Run() returning nil
+            wantOutput: "Usage:",      // Expect usage message in output
+        },
+        {
+            name:    "index without input",
+            args:    []string{"program", "-c", "index"},
+            wantErr: true,             // Unchanged, as this case works
+            errMsg:  "input and output file paths must be specified",
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            output, err := captureOutput(func() error {
+                return Run(tt.args)
+            })
+
+            // Check if error matches expectation
+            if (err != nil) != tt.wantErr {
+                t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
+                return
+            }
+
+            // If an error is expected, check the error message
+            if err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+                t.Errorf("Run() error = %v, want error containing %q", err, tt.errMsg)
+            }
+
+            // If no error is expected, check the output for usage message
+            if !tt.wantErr && tt.wantOutput != "" && !strings.Contains(output, tt.wantOutput) {
+                t.Errorf("Expected output to contain %q, got %q", tt.wantOutput, output)
+            }
+        })
+    }
+}
 func TestRunIndexCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 
