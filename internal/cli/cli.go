@@ -292,8 +292,8 @@ func Run(args []string) error {
 func printUsage(fs *flag.FlagSet) {
 	fmt.Println("JamText - A text indexing and similarity search tool")
 	fmt.Println("\nUsage:")
-	fmt.Println("  jamtext -c <command> [options]")
-	fmt.Println("  jamtext -c <command> [options]")
+	fmt.Println("  textindex -c <command> [options]")
+	fmt.Println("  textindex -c <command> [options]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  index     - Create index from text file")
 	fmt.Println("  lookup    - Exact lookup by SimHash")
@@ -305,13 +305,13 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Println("\nOptions:")
 	fs.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  ./jamtext -c moderate -i <input_file.txt> -wordlist <moderation_wordlist.txt> -modlevel <moderation_level>")
-	fmt.Println("  ./jamtext -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
-	fmt.Println("  ./jamtext -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
-	fmt.Println("  ./jamtext -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
-	fmt.Println("  ./jamtext -c lookup -i <index_file.idx> -h <simhash_value>")
-	fmt.Println("  ./jamtext -c stats -i <index_file.idx>")
-	fmt.Println("  ./jamtext -c hash -i <input_file.txt>")
+	fmt.Println("  ./textindex -c moderate -i <input_file.txt> -wordlist <moderation_wordlist.txt> -modlevel <moderation_level>")
+	fmt.Println("  ./textindex -c index -i <input_file.txt> -o <index_file.idx> -s <chunk_size> --log [options = logs.logs ]")
+	fmt.Println("  ./textindex -c fuzzy -i <index_file.idx> -h <simhash_value> -threshold <threshold_value>")
+	fmt.Println("  ./textindex -c compare -i <doc1.txt> -i2 <doc2.txt> -o <report.txt>")
+	fmt.Println("  ./textindex -c lookup -i <index_file.idx> -h <simhash_value>")
+	fmt.Println("  ./textindex -c stats -i <index_file.idx>")
+	fmt.Println("  ./textindex -c hash -i <input_file.txt>")
 }
 
 // Add this function to help verify matches
