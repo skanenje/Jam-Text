@@ -49,8 +49,6 @@ Options:
 ### Content Indexing
 ```bash
 # Create searchable index from a book
-jamtext -c index -i book.txt -o book.idx -s 4096
-
 # Index with custom overlap for better matching
 jamtext -c index -i content.txt -o content.idx -s 2048 -overlap 512
 ```
@@ -73,7 +71,7 @@ jamtext -c compare -i original.txt -i2 submission.txt -o report.txt
 jamtext -c moderate -i submission.txt -wordlist forbidden.txt -level strict
 
 # Lenient moderation with context
-jamtext -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
+jamtext  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
 ```
 
 ## Performance Tips
