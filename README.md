@@ -18,9 +18,6 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 
 ## Quick Start
 ```bash
-# Install
-go install github.com/yourusername/jam-text@latest
-
 # Index a document
 jamtext -c index -i testdata.txt -o testdata.dat -s 1024
 
