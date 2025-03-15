@@ -552,61 +552,26 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 	return matches, nil
 }
 
-func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int, contextBefore, contextAfter int) {
+func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
 	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-
+	
 	for simHash, positions := range matches {
-		fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
 		for _, pos := range positions {
-			// Read the main chunk
 			content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
 			if err != nil {
 				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
 				continue
 			}
-			fmt.Printf("Content: %s\n", content)
-
-			// Read context before if requested
-			var before string
-			if contextBefore > 0 {
-				// Calculate safe position for reading before context
-				beforePos := pos - int64(contextBefore)
-				if beforePos < 0 {
-					// Adjust context size if we're near the start of file
-					beforePos = 0
-					contextBefore = int(pos) // Use whatever space is available
-				}
-
-				if contextBefore > 0 { // Only read if we have space for context
-					beforeContent, err := chunk.ReadChunk(sourceFile, beforePos, contextBefore)
-					if err == nil {
-						before = beforeContent
-					}
-				}
+			
+			// Create a preview (first 100 chars + "..." if longer)
+			preview := content
+			if len(preview) > 100 {
+				preview = preview[:100] + "..."
 			}
-
-			// Read context after if requested
-			var after string
-			if contextAfter > 0 {
-				afterPos := pos + int64(chunkSize)
-				// Try to read after context
-				afterContent, err := chunk.ReadChunk(sourceFile, afterPos, contextAfter)
-				if err == nil { // No error means we successfully read after context
-					after = afterContent
-				} else if err == io.EOF {
-					// We hit the end of file, which is fine - just use whatever we got
-					after = "" // or afterContent if it contains partial data
-				}
-			}
-
-			fmt.Printf("Match at position %d:\n", pos)
-			if contextBefore > 0 && len(before) > 0 {
-				fmt.Printf("Before: %s\n", before)
-			}
-			if contextAfter > 0 && len(after) > 0 {
-				fmt.Printf("After:  %s\n", after)
-			}
-			fmt.Println("---")
+			
+			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
+			fmt.Printf("Position: %d\n", pos)
+			fmt.Printf("Preview:\n---\n%s\n---\n", preview)
 		}
 	}
 }
