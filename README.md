@@ -19,17 +19,17 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 ## Quick Start
 ```bash
 # Index a document
-jamtext -c index -i testdata.txt -o testdata.dat -s 1024
+textindex -c index -i testdata.txt -o testdata.dat -s 1024
 
 # Generate document hash
-HASH=$(jamtext -c hash -i testPlagiarism.txt)
+HASH=$(textindex -c hash -i testPlagiarism.txt)
 
 # Search with fuzzy matching
-jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+textindex -c fuzzy -i testdata.dat -h $HASH -threshold 5
 
 # Find known content
-KNOWN_HASH=$(jamtext -c hash -i known_content.txt)
-jamtext -c lookup -i database.idx -h $KNOWN_HASH
+KNOWN_HASH=$(textindex -c hash -i known_content.txt)
+textindex -c lookup -i database.idx -h $KNOWN_HASH
 ```
 
 ## Common Use Cases
@@ -70,15 +70,15 @@ See package documentation for detailed information:
 ## Search Examples
 ```bash
 # Create content database with efficient sharding
-jamtext -c index -i master_content.txt -o reference.idx -s 4096
+textindex -c index -i master_content.txt -o reference.idx -s 4096
 
 # Search for known content
-HASH=$(jamtext -c hash -i known_text.txt)
-jamtext -c fuzzy -i reference.idx -h $HASH -threshold 3
+HASH=$(textindex -c hash -i known_text.txt)
+textindex -c fuzzy -i reference.idx -h $HASH -threshold 3
 
 # Batch search multiple indexes
 for idx in indexes/*.idx; do
-    jamtext -c fuzzy -i "$idx" -h $HASH -threshold 3
+    textindex -c fuzzy -i "$idx" -h $HASH -threshold 3
 done
 ```
 

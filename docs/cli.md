@@ -1,6 +1,6 @@
 # CLI Package
 
-JamText is a powerful text analysis tool designed for content creators, researchers, and developers who need to:
+Jamtext is a powerful text analysis tool designed for content creators, researchers, and developers who need to:
 - Detect similar or duplicate content across large text collections
 - Identify potential plagiarism in academic or professional writing
 - Monitor content for inappropriate or unwanted material
@@ -34,7 +34,7 @@ JamText is a powerful text analysis tool designed for content creators, research
 
 ## Usage
 ```bash
-jamtext -c <command> [options]
+textindex -c <command> [options]
 
 Options:
   -i string      Input file path
@@ -50,28 +50,28 @@ Options:
 ```bash
 # Create searchable index from a book
 # Index with custom overlap for better matching
-jamtext -c index -i content.txt -o content.idx -s 2048 -overlap 512
+textindex -c index -i content.txt -o content.idx -s 2048 -overlap 512
 ```
 
 ### Similarity Detection
 ```bash
 # Generate hash for comparison
-HASH=$(jamtext -c hash -i article.txt)
+HASH=$(textindex -c hash -i article.txt)
 
 # Find similar content
-jamtext -c fuzzy -i database.idx -h $HASH -threshold 5
+textindex -c fuzzy -i database.idx -h $HASH -threshold 5
 
 # Direct document comparison
-jamtext -c compare -i original.txt -i2 submission.txt -o report.txt
+textindex -c compare -i original.txt -i2 submission.txt -o report.txt
 ```
 
 ### Content Moderation
 ```bash
 # Check content against moderation rules
-jamtext -c moderate -i submission.txt -wordlist forbidden.txt -level strict
+textindex -c moderate -i submission.txt -wordlist forbidden.txt -level strict
 
 # Lenient moderation with context
-jamtext  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
+textindex  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
 ```
 
 ## Performance Tips
@@ -84,15 +84,15 @@ jamtext  -c moderate -i post.txt -wordlist rules.txt -level lenient -context 100
 ```bash
 # Git pre-commit hook
 #!/bin/bash
-HASH=$(jamtext -c hash -i "$1")
-jamtext -c fuzzy -i repository.idx -h $HASH -threshold 3
+HASH=$(textindex -c hash -i "$1")
+textindex -c fuzzy -i repository.idx -h $HASH -threshold 3
 
 # CI/CD Pipeline
-jamtext -c moderate -i release-notes.txt -wordlist company-rules.txt || exit 1
+textindex -c moderate -i release-notes.txt -wordlist company-rules.txt || exit 1
 
 # Batch Processing
 for file in content/*.txt; do
-    jamtext -c index -i "$file" -o "indexes/$(basename "$file").idx"
+    textindex -c index -i "$file" -o "indexes/$(basename "$file").idx"
 done
 ```
 
