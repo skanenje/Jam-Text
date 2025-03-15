@@ -100,7 +100,7 @@ HASH=$(./textindex -c hash -i testPlagurism.txt)
 ```
 **-c fuzzy** - This command specifies that you are looking for exact matches <br>
 **-i testdata.idx** - path to the hash file generated after hashing a document <br>
-**-h $HASH - specifies the the hash <br>
+**-h $HASH** - specifies the the hash <br>
 **-threshold -5** - specifies the limiting values <br> 
 
 ## Common Use Cases
@@ -137,6 +137,7 @@ See package documentation for detailed information:
 - [CLI Documentation](docs/cli.md) - Command-line interface
 - [Chunk Package](docs/chunking.md) - Text segmentation
 - [SimHash Package](docs/simhash.md) - Fingerprint generation
+- [Testing](docs/testing.md) - Testing practices and patterns.
 
 ## Search Examples
 ```bash
@@ -168,7 +169,7 @@ done
   - `pandoc` for DOCX support
 
 ## Contributing
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
+We welcome contributions! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Testing
 Run the test suite using the following commands:
@@ -193,11 +194,11 @@ go tool cover -html=coverage.out
 ```
 
 ## Contributors
-- [Elijah Gathanga](https://github.com/contributor1)
-- [Kevin Wasonga](https://github.com/contributor2)
-- [Swabri Kanenje](https://github.com/contributor3)
-- [Jerome Otieno](https://github.com/contributor4) 
+- [Elijah Gathanga](https://github.com/GathangaElijah)
+- [Kevin Wasonga](https://github.com/kevwasonga)
+- [Swabri Kanenje](https://github.com/skanenje)
+- [Jerome Otieno](https://github.com/Jerome-afk) 
 - [Godwin Ouma](https://github.com/oumaoumag) 
 
 ## License
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) for details.

@@ -38,7 +38,7 @@ Thank you for your interest in contributing to Jam-Text! This document provides 
 ## Code Standards
 
 ### Go Code
-- Follow the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
+- Follow the [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
 - Use `gofmt` to format your code
 - Ensure all tests pass: `go test ./...`
 - Maintain test coverage above 80%
