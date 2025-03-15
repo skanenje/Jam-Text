@@ -29,7 +29,7 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 
 ## Use Cases
 
-## Plugerism Detection
+## Duplicate Detection
 <<<<<<< HEAD
 ```bash
 # index the desired corpus of data
