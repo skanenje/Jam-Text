@@ -139,22 +139,16 @@ func Run(args []string) error {
 			return nil
 		}
 
-		// Pre-load all content before displaying
 		fmt.Printf("Found matches for SimHash %x:\n\n", hash)
-		contents := make([]string, 0, len(matches))
 		for _, pos := range matches {
-			content, err := chunk.ReadChunk(*input, pos, idx.ChunkSize)
+			content, err := chunk.ReadChunk(idx.SourceFile, pos, idx.ChunkSize) // Changed from *input to idx.SourceFile
 			if err != nil {
-				return fmt.Errorf("failed to load content at position %d: %w", pos, err)
+				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
+				continue
 			}
-			contents = append(contents, content)
-		}
-
-		// Display all matches with their pre-loaded content
-		for i, pos := range matches {
+			
 			fmt.Printf("\nHash: %x (Hamming distance: 0)\n", hash)
-			fmt.Printf("Content: \nMatch at position %d:\n---\n%s\n---\n", 
-				pos, contents[i])
+			fmt.Printf("Content at position %d:\n---\n%s\n---\n", pos, content)
 		}
 
 		defer idx.Close()
