@@ -553,26 +553,37 @@ func processModeration(inputPath, wordlistPath, modLevel string, contextSize int
 }
 
 func formatLookupOutput(sourceFile string, hash simhash.SimHash, matches map[simhash.SimHash][]int64, chunkSize int) {
-	fmt.Printf("Found matches for SimHash %x:\n\n", hash)
+	fmt.Printf("Looking up exact match for SimHash %x:\n\n", hash)
 	
+	// Only show exact matches (Hamming distance = 0)
+	exactMatches := 0
 	for simHash, positions := range matches {
-		for _, pos := range positions {
-			content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
-			if err != nil {
-				fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
-				continue
+		if hash == simHash { // Only exact matches
+			for _, pos := range positions {
+				content, err := chunk.ReadChunk(sourceFile, pos, chunkSize)
+				if err != nil {
+					fmt.Printf("Error reading chunk at position %d: %v\n", pos, err)
+					continue
+				}
+				
+				// Create a preview (first 50 chars + "..." if longer)
+				preview := content
+				if len(preview) > 50 {
+					preview = preview[:50] + "..."
+				}
+				
+				fmt.Printf("Match #%d:\n", exactMatches+1)
+				fmt.Printf("Position: %d\n", pos)
+				fmt.Printf("Preview:\n---\n%s\n---\n\n", preview)
+				exactMatches++
 			}
-			
-			// Create a preview (first 100 chars + "..." if longer)
-			preview := content
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
-			}
-			
-			fmt.Printf("\nHash: %x (Hamming distance: %d)\n", simHash, hash.HammingDistance(simHash))
-			fmt.Printf("Position: %d\n", pos)
-			fmt.Printf("Preview:\n---\n%s\n---\n", preview)
 		}
+	}
+	
+	if exactMatches == 0 {
+		fmt.Printf("No exact matches found for hash %x\n", hash)
+	} else {
+		fmt.Printf("Found %d exact matches\n", exactMatches)
 	}
 }
 
