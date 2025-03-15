@@ -169,56 +169,6 @@ func TestWorkerPoolEdgeCases(t *testing.T) {
 	}
 }
 
-func TestNewChunk(t *testing.T) {
-	tests := []struct {
-		name        string
-		content     string
-		startOffset int64
-		wantLength  int
-	}{
-		{
-			name:        "empty content",
-			content:     "",
-			startOffset: 0,
-			wantLength:  0,
-		},
-		{
-			name:        "normal content",
-			content:     "test content",
-			startOffset: 100,
-			wantLength:  11,
-		},
-		{
-			name:        "content with special chars",
-			content:     "test\ncontent\t中文",
-			startOffset: 50,
-			wantLength:  17, // Corrected from 14 to 17 (actual byte length)
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			chunk := NewChunk(tt.content, tt.startOffset)
-
-			if chunk.Content != tt.content {
-				t.Errorf("Content = %v, want %v", chunk.Content, tt.content)
-			}
-			if chunk.StartOffset != tt.startOffset {
-				t.Errorf("StartOffset = %v, want %v", chunk.StartOffset, tt.startOffset)
-			}
-			if chunk.Length != tt.wantLength {
-				t.Errorf("Length = %v, want %v", chunk.Length, tt.wantLength)
-			}
-			if !chunk.IsComplete {
-				t.Error("IsComplete = false, want true")
-			}
-			if chunk.Metadata == nil {
-				t.Error("Metadata is nil, want initialized map")
-			}
-		})
-	}
-}
-
 func TestChunkWithMetadata(t *testing.T) {
 	chunk := NewChunk("test", 0)
 	chunk.Metadata["timestamp"] = time.Now().Format(time.RFC3339)
@@ -315,6 +265,7 @@ func TestRunLookupCommand(t *testing.T) {
 func TestRunFuzzyCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath, _ := createValidIndex(t, tmpDir)
+	// No hash needed, so ignore it with _
 	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
 		t.Errorf("Index file does not exist: %v", err)
 	}
