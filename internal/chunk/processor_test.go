@@ -1,7 +1,9 @@
 package chunk
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 
 	"jamtext/internal/simhash"
@@ -109,6 +111,102 @@ func TestProcessChunk(t *testing.T) {
 			}
 			if result.Hash == 0 {
 				t.Error("Expected non-zero hash")
+			}
+		})
+	}
+}
+
+func TestProcessorClose(t *testing.T) {
+	hyperplanes := simhash.GenerateHyperplanes(128, 64)
+	cp := NewChunkProcessor(2, hyperplanes)
+
+	// Submit some work
+	cp.ProcessChunk(Chunk{Content: "test", StartOffset: 0})
+
+	// Consume the result
+	result := <-cp.Results()
+	if result.Error != nil {
+		t.Errorf("Unexpected error: %v", result.Error)
+	}
+
+	// Close the processor
+	cp.Close()
+
+	// Verify channel is closed
+	_, ok := <-cp.Results()
+	if ok {
+		t.Error("Results channel should be closed")
+	}
+}
+
+func TestProcessorWithEmptyHyperplanes(t *testing.T) {
+	cp := NewChunkProcessor(2, nil)
+	defer cp.Close()
+
+	cp.ProcessChunk(Chunk{Content: "test", StartOffset: 0})
+	result := <-cp.Results()
+
+	if result.Error != nil {
+		t.Errorf("Expected no error with empty hyperplanes, got %v", result.Error)
+	}
+}
+
+func TestProcessorConcurrency(t *testing.T) {
+	hyperplanes := simhash.GenerateHyperplanes(128, 64)
+	cp := NewChunkProcessor(4, hyperplanes)
+	defer cp.Close()
+
+	numChunks := 100
+	processed := make(chan struct{}, numChunks)
+
+	// Submit chunks concurrently
+	for i := 0; i < numChunks; i++ {
+		go func(i int) {
+			cp.ProcessChunk(Chunk{
+				Content:     fmt.Sprintf("chunk-%d", i),
+				StartOffset: int64(i * 100),
+			})
+		}(i)
+	}
+
+	// Collect results
+	for i := 0; i < numChunks; i++ {
+		result := <-cp.Results()
+		if result.Error != nil {
+			t.Errorf("Unexpected error processing chunk: %v", result.Error)
+		}
+		processed <- struct{}{}
+	}
+
+	if len(processed) != numChunks {
+		t.Errorf("Expected %d processed chunks, got %d", numChunks, len(processed))
+	}
+}
+
+func TestProcessorWithInvalidContent(t *testing.T) {
+	hyperplanes := simhash.GenerateHyperplanes(128, 64)
+	cp := NewChunkProcessor(2, hyperplanes)
+	defer cp.Close()
+
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"empty content", ""},
+		{"very large content", strings.Repeat("a", 1000000)},
+		{"special characters", "⌘\n\t\r"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cp.ProcessChunk(Chunk{Content: tt.content, StartOffset: 0})
+			result := <-cp.Results()
+
+			if result.Error != nil {
+				t.Errorf("Unexpected error: %v", result.Error)
+			}
+			if result.Hash == 0 {
+				t.Error("Expected non-zero hash even for edge cases")
 			}
 		})
 	}
