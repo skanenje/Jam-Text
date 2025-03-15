@@ -132,14 +132,30 @@ func Run(args []string) error {
 
 		matches, err := idx.Lookup(hash)
 		if err != nil {
-			return err
+			return fmt.Errorf("lookup failed: %w", err)
 		}
-
 		if len(matches) == 0 {
-			return fmt.Errorf("no matches found for hash %x", hash)
+			fmt.Println("No matches found")
+			return nil
 		}
 
-		formatLookupOutput(idx.SourceFile, hash, map[simhash.SimHash][]int64{hash: matches}, idx.ChunkSize, 100, 100)
+		// Pre-load all content before displaying
+		fmt.Printf("Found matches for SimHash %x:\n\n", hash)
+		contents := make([]string, 0, len(matches))
+		for _, pos := range matches {
+			content, err := chunk.ReadChunk(*input, pos, idx.ChunkSize)
+			if err != nil {
+				return fmt.Errorf("failed to load content at position %d: %w", pos, err)
+			}
+			contents = append(contents, content)
+		}
+
+		// Display all matches with their pre-loaded content
+		for i, pos := range matches {
+			fmt.Printf("\nHash: %x (Hamming distance: 0)\n", hash)
+			fmt.Printf("Content: \nMatch at position %d:\n---\n%s\n---\n", 
+				pos, contents[i])
+		}
 
 		defer idx.Close()
 		return nil
