@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.24.1-blue.svg)](https://golang.org/dl/)
 
-A high-performance text indexer using SimHash fingerprints for text similarity search.
+A high-performance text indexer using SimHash fingerprints for text similarity search and content finding.
 
 ## Features
 - SimHash-based text fingerprinting
@@ -11,12 +11,13 @@ A high-performance text indexer using SimHash fingerprints for text similarity s
 - Parallel processing with worker pools
 - Locality-Sensitive Hashing (LSH) support
 - Multiple vectorization strategies
+- Content finding and search capabilities
+- Fuzzy matching with configurable thresholds
+- Sharded index storage for large datasets
+- Memory-efficient operations through disk-based sharding
 
 ## Quick Start
 ```bash
-# Install
-go install github.com/yourusername/jam-text@latest
-
 # Index a document
 jamtext -c index -i testdata.txt -o testdata.dat -s 1024
 
@@ -25,7 +26,30 @@ HASH=$(jamtext -c hash -i testPlagiarism.txt)
 
 # Search with fuzzy matching
 jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
+
+# Find known content
+KNOWN_HASH=$(jamtext -c hash -i known_content.txt)
+jamtext -c lookup -i database.idx -h $KNOWN_HASH
 ```
+
+## Common Use Cases
+- **Content Finding**: Search for known text across large document collections
+- **Plagiarism Detection**: Compare documents for similarity
+- **Content Moderation**: Screen content against moderation rules
+- **Database Search**: Build and search text databases efficiently
+- **Document Comparison**: Compare multiple documents for similarities
+
+## Core Components
+
+### Index System
+The Index package provides the core functionality for text indexing and search:
+- Sharded storage supporting 100,000+ entries per shard
+- Automatic shard rotation and management
+- LSH-based similarity search
+- Thread-safe operations
+- Memory-efficient disk-based storage
+
+For detailed index implementation, see [Index Documentation](docs/Index_Readme.md).
 
 ## Package Structure
 - `cmd/` - Command-line interface
@@ -33,13 +57,38 @@ jamtext -c fuzzy -i testdata.dat -h $HASH -threshold 5
   - `chunk/` - Text segmentation
   - `simhash/` - Fingerprint generation
   - `cli/` - CLI implementation
+  - `index/` - Core indexing system
 - `docs/` - Package documentation
 
 ## Documentation
-See package READMEs for detailed documentation:
-- [CLI Documentation](internal/cli/README.md)
-- [Chunk Package](internal/chunk/README.md)
-- [SimHash Package](internal/simhash/README.md)
+See package documentation for detailed information:
+- [Index System](docs/Index_Readme.md) - Core indexing and search functionality
+- [CLI Documentation](internal/cli/README.md) - Command-line interface
+- [Chunk Package](internal/chunk/README.md) - Text segmentation
+- [SimHash Package](internal/simhash/README.md) - Fingerprint generation
+
+## Search Examples
+```bash
+# Create content database with efficient sharding
+jamtext -c index -i master_content.txt -o reference.idx -s 4096
+
+# Search for known content
+HASH=$(jamtext -c hash -i known_text.txt)
+jamtext -c fuzzy -i reference.idx -h $HASH -threshold 3
+
+# Batch search multiple indexes
+for idx in indexes/*.idx; do
+    jamtext -c fuzzy -i "$idx" -h $HASH -threshold 3
+done
+```
+
+## Performance Tips
+- Configure shard sizes based on available memory (default: 100,000 entries)
+- Use LSH bands appropriately for your dataset size
+- Adjust chunk sizes:
+  - Smaller (2048) for precise matching
+  - Larger (8192+) for faster processing
+- Monitor shard rotation frequency for optimal performance
 
 ## Requirements
 - Go 1.24.1 or higher
