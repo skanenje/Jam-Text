@@ -63,9 +63,9 @@ For detailed index implementation, see [Index Documentation](docs/Index_Readme.m
 ## Documentation
 See package documentation for detailed information:
 - [Index System](docs/Index_Readme.md) - Core indexing and search functionality
-- [CLI Documentation](internal/cli/README.md) - Command-line interface
-- [Chunk Package](internal/chunk/README.md) - Text segmentation
-- [SimHash Package](internal/simhash/README.md) - Fingerprint generation
+- [CLI Documentation](docs/cli.md) - Command-line interface
+- [Chunk Package](docs/chunking.md) - Text segmentation
+- [SimHash Package](docs/simhash.md) - Fingerprint generation
 
 ## Search Examples
 ```bash
